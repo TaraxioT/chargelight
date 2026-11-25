@@ -1,127 +1,105 @@
 import Foundation
 
-/// Which LED state each agent status shows, and how long claims last.
+/// A named reason to light the LED: what to show, how it ranks against other
+/// claims, and how long a claim lasts unless renewed.
+public struct Preset: Equatable, Sendable {
+    /// What to show: a state, a pattern name or a pattern such as `green:300,off:300`.
+    public var led: String
+    /// Higher wins when several claims are active.
+    public var priority: Int
+    /// Claim lifetime in seconds.
+    public var ttl: TimeInterval
+
+    /// Creates a preset.
+    public init(led: String, priority: Int, ttl: TimeInterval) {
+        self.led = led
+        self.priority = priority
+        self.ttl = ttl
+    }
+}
+
+/// Presets, named patterns and the idle state.
 ///
-/// Loaded from `config.json` in the state directory, shaped like
-/// `{"leds":{"working":"amber","attention":"blink-fast","ready":"green","idle":"system"},
-/// "ttl":{"working":1800,"attention":7200,"ready":600}}` with every key
-/// optional, then overridden by `CHARGELIGHT_LED_WORKING`,
-/// `CHARGELIGHT_LED_ATTENTION`, `CHARGELIGHT_LED_READY` and `CHARGELIGHT_LED_IDLE`.
-public struct Configuration: Codable, Equatable, Sendable {
-    /// LED state per agent status, plus the idle state used when nothing claims the LED.
-    public struct LEDs: Codable, Equatable, Sendable {
-        /// Shown while an agent works. Default ``LEDState/amber``.
-        public var working: LEDState = .amber
-        /// Shown while an agent needs the user. Default ``LEDState/blinkFast``.
-        public var attention: LEDState = .blinkFast
-        /// Shown when an agent has finished. Default ``LEDState/green``.
-        public var ready: LEDState = .green
-        /// Shown when there are no claims. Default ``LEDState/system``.
-        public var idle: LEDState = .system
+/// Loaded from `config.json` in the state directory. Every key is optional:
+///
+/// ```json
+/// {
+///   "idle": "system",
+///   "presets":  { "deploy": { "led": "heartbeat", "priority": 25, "ttl": 900 } },
+///   "patterns": { "triple": "green:100,off:100,green:100,off:100,green:100,off:600" },
+///   "leds":     { "working": "amber", "attention": "blink-fast", "ready": "green" },
+///   "ttl":      { "working": 1800 }
+/// }
+/// ```
+///
+/// `leds` and `ttl` are shorthand for changing the three built-in presets.
+/// `CHARGELIGHT_LED_WORKING`, `_ATTENTION`, `_READY` and `_IDLE` override the
+/// file.
+public struct Configuration: Equatable, Sendable {
+    /// The priority of a claim that names no preset and passes none.
+    public static let defaultPriority = 20
+    /// The lifetime, in seconds, of a claim that names no preset and passes none.
+    public static let defaultTTL: TimeInterval = 30 * 60
+    /// The priority used by transient effects such as `chargelight flash`.
+    public static let noticePriority = 100
 
-        private enum CodingKeys: String, CodingKey {
-            case working, attention, ready, idle
-        }
+    /// The presets every installation starts with.
+    public static let builtInPresets: [String: Preset] = [
+        "attention": Preset(led: "blink-fast", priority: 30, ttl: 2 * 60 * 60),
+        "working": Preset(led: "amber", priority: 20, ttl: 30 * 60),
+        "ready": Preset(led: "green", priority: 10, ttl: 10 * 60),
+    ]
 
-        /// The defaults.
-        public init() {}
-
-        public init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            working = try c.decodeIfPresent(LEDState.self, forKey: .working) ?? working
-            attention = try c.decodeIfPresent(LEDState.self, forKey: .attention) ?? attention
-            ready = try c.decodeIfPresent(LEDState.self, forKey: .ready) ?? ready
-            idle = try c.decodeIfPresent(LEDState.self, forKey: .idle) ?? idle
-        }
-    }
-
-    /// Claim lifetime in seconds per agent status.
-    public struct TTLs: Codable, Equatable, Sendable {
-        /// Default 1800 (30 minutes).
-        public var working: TimeInterval = AgentStatus.working.defaultTTL
-        /// Default 7200 (2 hours).
-        public var attention: TimeInterval = AgentStatus.attention.defaultTTL
-        /// Default 600 (10 minutes).
-        public var ready: TimeInterval = AgentStatus.ready.defaultTTL
-
-        private enum CodingKeys: String, CodingKey {
-            case working, attention, ready
-        }
-
-        /// The defaults.
-        public init() {}
-
-        public init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            working = try Self.positive(c, .working) ?? working
-            attention = try Self.positive(c, .attention) ?? attention
-            ready = try Self.positive(c, .ready) ?? ready
-        }
-
-        private static func positive(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) throws -> TimeInterval? {
-            guard let value = try c.decodeIfPresent(TimeInterval.self, forKey: key) else { return nil }
-            guard value > 0, value.isFinite else {
-                throw DecodingError.dataCorruptedError(
-                    forKey: key, in: c, debugDescription: "must be a positive number of seconds")
-            }
-            return value
-        }
-    }
-
-    /// LED state per status.
-    public var leds = LEDs()
-    /// Claim lifetime per status.
-    public var ttl = TTLs()
+    /// Presets by name: the built-in three plus any from `config.json`.
+    public var presets: [String: Preset] = Configuration.builtInPresets
+    /// Patterns by name: ``Pattern/builtIn`` plus any from `config.json`.
+    public var patterns: [String: Pattern] = Pattern.builtIn
+    /// Shown when nothing claims the LED. Default ``LEDState/system``.
+    public var idle: LEDState = .system
 
     /// The built-in defaults.
     public init() {}
 
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        leds = try c.decodeIfPresent(LEDs.self, forKey: .leds) ?? LEDs()
-        ttl = try c.decodeIfPresent(TTLs.self, forKey: .ttl) ?? TTLs()
+    // MARK: - Resolving
+
+    /// Turns what a caller asked to show into an ``LEDSpec``. `text` may be a
+    /// preset name, a state name, a pattern name, or a pattern written out.
+    public func resolve(_ text: String) throws -> LEDSpec {
+        if let preset = presets[text] { return try resolveLED(preset.led) }
+        return try resolveLED(text)
     }
 
-    /// The LED state shown for `status`.
-    public func led(for status: AgentStatus) -> LEDState {
-        switch status {
-        case .working: return leds.working
-        case .attention: return leds.attention
-        case .ready: return leds.ready
-        }
+    /// Like ``resolve(_:)`` but does not accept preset names.
+    public func resolveLED(_ text: String) throws -> LEDSpec {
+        if let state = LEDState(rawValue: text) { return .state(state) }
+        if let pattern = patterns[text] { return .pattern(pattern) }
+        if text.contains(":") { return .pattern(try Pattern(parsing: text)) }
+        throw ChargeLightError.invalidArgument(
+            "unknown LED state or pattern \"\(text)\" (states: \(LEDState.namesList); patterns: "
+                + "\(patterns.keys.sorted().joined(separator: ", ")); or write one, e.g. green:300,off:300)")
     }
 
-    /// The default claim lifetime for `status`, in seconds.
+    /// The preset named `name`, if any.
+    public func preset(_ name: String) -> Preset? {
+        presets[name]
+    }
+
+    /// What the built-in preset for `status` shows.
+    public func led(for status: AgentStatus) -> LEDSpec {
+        (try? resolve(status.rawValue)) ?? .state(.amber)
+    }
+
+    /// The claim lifetime of the built-in preset for `status`, in seconds.
     public func ttl(for status: AgentStatus) -> TimeInterval {
-        switch status {
-        case .working: return ttl.working
-        case .attention: return ttl.attention
-        case .ready: return ttl.ready
-        }
+        presets[status.rawValue]?.ttl ?? Configuration.defaultTTL
     }
 
-    /// Environment variables that override ``leds``, and the field each sets.
-    static let environmentKeys: [(name: String, keyPath: WritableKeyPath<LEDs, LEDState>)] = [
-        ("CHARGELIGHT_LED_WORKING", \.working),
-        ("CHARGELIGHT_LED_ATTENTION", \.attention),
-        ("CHARGELIGHT_LED_READY", \.ready),
-        ("CHARGELIGHT_LED_IDLE", \.idle),
-    ]
-
-    /// Decodes a configuration from JSON. Throws ``ChargeLightError/invalidArgument(_:)``
-    /// naming the offending key.
-    public static func decode(_ data: Data, source: String = "config.json") throws -> Configuration {
-        do {
-            return try JSONDecoder().decode(Configuration.self, from: data)
-        } catch let error as DecodingError {
-            throw ChargeLightError.invalidArgument("\(source): \(describe(error))")
-        } catch {
-            throw ChargeLightError.invalidArgument("\(source): \(error.localizedDescription)")
-        }
-    }
+    // MARK: - Loading
 
     /// Loads `paths.configFile` (if present) and applies environment overrides.
-    public static func load(paths: Paths, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> Configuration {
+    public static func load(
+        paths: Paths, environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> Configuration {
         var configuration = Configuration()
         if let data = try FileIO.readIfPresent(paths.configFile) {
             configuration = try decode(data, source: paths.configFile.path)
@@ -130,37 +108,147 @@ public struct Configuration: Codable, Equatable, Sendable {
         return configuration
     }
 
+    /// Decodes a configuration from JSON.
+    ///
+    /// - Throws: ``ChargeLightError/invalidArgument(_:)`` naming the offending key.
+    public static func decode(_ data: Data, source: String = "config.json") throws -> Configuration {
+        func fail(_ message: String) -> ChargeLightError { .invalidArgument("\(source): \(message)") }
+        guard let root = try? JSONSerialization.jsonObject(with: data) else { throw fail("not valid JSON") }
+        guard let object = root as? [String: Any] else { throw fail("top level: expected an object") }
+        let known: Set<String> = ["idle", "presets", "patterns", "leds", "ttl"]
+        if let unknown = object.keys.sorted().first(where: { !known.contains($0) }) {
+            throw fail("\(unknown): unknown key (expected: \(known.sorted().joined(separator: ", ")))")
+        }
+
+        func table(_ key: String) throws -> [String: Any] {
+            guard let value = object[key] else { return [:] }
+            guard let table = value as? [String: Any] else { throw fail("\(key): expected an object") }
+            return table
+        }
+        func seconds(_ value: Any, _ key: String) throws -> TimeInterval {
+            guard let number = value as? NSNumber, !(value is Bool), number.doubleValue > 0, number.doubleValue.isFinite
+            else { throw fail("\(key): must be a positive number of seconds") }
+            return number.doubleValue
+        }
+
+        var configuration = Configuration()
+
+        // Patterns first: presets and leds may name them.
+        for (name, value) in try table("patterns").sorted(by: { $0.key < $1.key }) {
+            let key = "patterns.\(name)"
+            guard let text = value as? String else { throw fail("\(key): expected a pattern string") }
+            // A preset of the same name would hide the pattern wherever both are accepted.
+            guard isValidName(name), LEDState(rawValue: name) == nil, builtInPresets[name] == nil else {
+                throw fail("\(key): not a usable name (letters, digits, - and _; not a state or preset name)")
+            }
+            do {
+                configuration.patterns[name] = try Pattern(parsing: text, name: name)
+            } catch {
+                throw fail("\(key): \(ChargeLightError.wrap(error).message)")
+            }
+        }
+
+        for (name, value) in try table("presets").sorted(by: { $0.key < $1.key }) {
+            let key = "presets.\(name)"
+            guard let fields = value as? [String: Any] else { throw fail("\(key): expected an object") }
+            guard isValidName(name), LEDState(rawValue: name) == nil, configuration.patterns[name] == nil else {
+                throw fail("\(key): not a usable name (letters, digits, - and _; not a state or pattern name)")
+            }
+            if let unknown = fields.keys.sorted().first(where: { !["led", "priority", "ttl"].contains($0) }) {
+                throw fail("\(key).\(unknown): unknown key (expected: led, priority, ttl)")
+            }
+            var preset = configuration.presets[name]
+                ?? Preset(led: "amber", priority: defaultPriority, ttl: defaultTTL)
+            if let led = fields["led"] {
+                guard let text = led as? String else { throw fail("\(key).led: expected a string") }
+                preset.led = text
+            } else if configuration.presets[name] == nil {
+                throw fail("\(key).led: missing")
+            }
+            if let priority = fields["priority"] {
+                guard let number = priority as? NSNumber, !(priority is Bool),
+                      number.doubleValue == number.doubleValue.rounded(), abs(number.doubleValue) <= 1_000_000
+                else { throw fail("\(key).priority: expected a whole number") }
+                preset.priority = number.intValue
+            }
+            if let ttl = fields["ttl"] { preset.ttl = try seconds(ttl, "\(key).ttl") }
+            configuration.presets[name] = preset
+        }
+
+        for (name, value) in try table("leds").sorted(by: { $0.key < $1.key }) {
+            let key = "leds.\(name)"
+            guard let text = value as? String else { throw fail("\(key): expected a string") }
+            if name == "idle" {
+                configuration.idle = try idleState(text, key: key, fail: fail)
+            } else if builtInPresets[name] != nil {
+                configuration.presets[name]?.led = text
+            } else {
+                throw fail("\(key): unknown key (expected: working, attention, ready, idle)")
+            }
+        }
+        if let idle = object["idle"] {
+            guard let text = idle as? String else { throw fail("idle: expected a string") }
+            configuration.idle = try idleState(text, key: "idle", fail: fail)
+        }
+        for (name, value) in try table("ttl").sorted(by: { $0.key < $1.key }) {
+            guard builtInPresets[name] != nil else {
+                throw fail("ttl.\(name): unknown key (expected: working, attention, ready)")
+            }
+            configuration.presets[name]?.ttl = try seconds(value, "ttl.\(name)")
+        }
+
+        // Every preset must show something that exists.
+        for (name, preset) in configuration.presets.sorted(by: { $0.key < $1.key }) {
+            do {
+                _ = try configuration.resolveLED(preset.led)
+            } catch {
+                let key = builtInPresets[name] != nil && (object["presets"] as? [String: Any])?[name] == nil
+                    ? "leds.\(name)" : "presets.\(name).led"
+                throw fail("\(key): \(ChargeLightError.wrap(error).message)")
+            }
+        }
+        return configuration
+    }
+
+    /// Environment variables that override what a built-in preset shows.
+    static let environmentPresets: [(name: String, preset: String)] = [
+        ("CHARGELIGHT_LED_WORKING", "working"),
+        ("CHARGELIGHT_LED_ATTENTION", "attention"),
+        ("CHARGELIGHT_LED_READY", "ready"),
+    ]
+
     /// Applies the `CHARGELIGHT_LED_*` overrides. Empty values are ignored.
     public mutating func applyEnvironment(_ environment: [String: String]) throws {
-        for (name, keyPath) in Configuration.environmentKeys {
-            guard let value = environment[name]?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { continue }
-            guard let state = LEDState(rawValue: value) else {
-                throw ChargeLightError.invalidArgument(
-                    "\(name): unknown LED state \"\(value)\" (expected one of: \(LEDState.namesList))")
+        func value(_ name: String) -> String? {
+            guard let value = environment[name]?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return nil }
+            return value
+        }
+        for (name, preset) in Configuration.environmentPresets {
+            guard let text = value(name) else { continue }
+            do {
+                _ = try resolveLED(text)
+            } catch {
+                throw ChargeLightError.invalidArgument("\(name): \(ChargeLightError.wrap(error).message)")
             }
-            leds[keyPath: keyPath] = state
+            presets[preset]?.led = text
+        }
+        if let text = value("CHARGELIGHT_LED_IDLE") {
+            idle = try Configuration.idleState(text, key: "CHARGELIGHT_LED_IDLE") { .invalidArgument($0) }
         }
     }
 
-    private static func describe(_ error: DecodingError) -> String {
-        func path(_ codingPath: [CodingKey]) -> String {
-            codingPath.map(\.stringValue).joined(separator: ".")
+    private static func idleState(
+        _ text: String, key: String, fail: (String) -> ChargeLightError
+    ) throws -> LEDState {
+        guard let state = LEDState(rawValue: text) else {
+            throw fail("\(key): unknown LED state \"\(text)\" (expected one of: \(LEDState.namesList))")
         }
-        switch error {
-        case .dataCorrupted(let context):
-            if context.codingPath.isEmpty { return "not valid JSON" }
-            // An unknown enum value surfaces here with the offending key in the path.
-            if context.codingPath.first?.stringValue == "leds" {
-                return "\(path(context.codingPath)): unknown LED state (expected one of: \(LEDState.namesList))"
-            }
-            return "\(path(context.codingPath)): \(context.debugDescription)"
-        case .typeMismatch(_, let context), .valueNotFound(_, let context):
-            let key = path(context.codingPath)
-            return "\(key.isEmpty ? "top level" : key): wrong type (\(context.debugDescription))"
-        case .keyNotFound(let key, _):
-            return "\(key.stringValue): missing"
-        @unknown default:
-            return error.localizedDescription
-        }
+        return state
+    }
+
+    /// Names are used on the command line, so keep them simple.
+    static func isValidName(_ name: String) -> Bool {
+        !name.isEmpty && name.count <= 40 && !name.hasPrefix("-")
+            && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
 }

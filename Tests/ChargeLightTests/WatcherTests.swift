@@ -58,7 +58,7 @@ final class WatcherTests: XCTestCase {
         let home = TempHome()
         let backend = CountingBackend()
         var configuration = Configuration()
-        configuration.leds.working = .system
+        configuration.presets["working"]?.led = "system"
         let light = StatusLight(paths: home.paths, backend: backend, configuration: configuration)
         _ = try light.claim(id: "s", status: .working, stamp: 1, now: t0)
         backend.raw = 0x04
