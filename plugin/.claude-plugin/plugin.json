@@ -1,7 +1,7 @@
 {
   "name": "chargelight",
   "displayName": "Chargelight",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Turns the MacBook MagSafe charger LED into a status light for Claude Code: amber while Claude works, fast blink when it needs you, green when it has finished. Requires the chargelight CLI on an Apple Silicon Mac.",
   "author": {
     "name": "Taraxio",

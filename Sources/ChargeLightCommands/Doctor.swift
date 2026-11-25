@@ -27,7 +27,9 @@ extension CLI {
         }
         return CommandOutput(
             fields: ["checks": .array(checks.map(\.json))],
-            text: lines.joined(separator: "\n") + "\n" + (ok ? "all checks passed" : "some checks failed"),
+            text: fancy
+                ? fancyDoctor(checks, ok: ok)
+                : lines.joined(separator: "\n") + "\n" + (ok ? "all checks passed" : "some checks failed"),
             ok: ok)
     }
 

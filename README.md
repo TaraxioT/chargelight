@@ -12,6 +12,7 @@
 The little LED on your MacBook's MagSafe connector can do more than say "charging". **chargelight** makes it programmable: a light you can read from across the room, driven by one command from a shell, a script, a build, a cron job or an AI agent.
 
 ```sh
+chargelight play                     # an interactive panel: press keys, watch the light
 chargelight amber                    # solid amber, until you change it
 chargelight flash green              # three green flashes, then back to what it was
 chargelight heartbeat --for 10m      # a pattern, for ten minutes
@@ -27,7 +28,7 @@ You need an Apple Silicon MacBook with a MagSafe 3 port, with the charger plugge
 ```sh
 brew install taraxiot/tap/chargelight
 sudo chargelight setup               # once: lets the LED be changed without a password
-chargelight demo                     # see everything it can do
+chargelight play                     # try it: an interactive panel
 ```
 
 Shell completions for zsh, bash and fish are installed with it.
@@ -54,6 +55,22 @@ Shell completions for zsh, bash and fish are installed with it.
 | your own | `green:100,amber:100,off:300`: steps of `state:milliseconds`, repeated |
 
 Anywhere a command takes a state it also takes a pattern. `chargelight list` prints all of them.
+
+<p align="center">
+  <img src="docs/list.svg" width="760" alt="chargelight list in a terminal: the six states with coloured dots, the three presets, and each pattern drawn as a strip of amber, green and dark cells next to its definition.">
+</p>
+
+## In the terminal
+
+`chargelight play` is the quickest way to get a feel for it: a full-screen panel where each key changes the real light, with the pattern drawn out, a playhead moving through it, and a live table of everything else that is claiming the LED.
+
+<p align="center">
+  <img src="docs/play.svg" width="760" alt="chargelight play: a drawing of the MagSafe plug with a lit amber dot, the heartbeat pattern as a strip with a playhead, a legend of keys for states, patterns, flash and Morse, and a table of who holds the light.">
+</p>
+
+The rest of the CLI dresses up the same way when a person is looking: `demo` is an animated tour, `morse` spells the message out as the light sends it, `watch` becomes a live view, and `status`, `list` and `doctor` are coloured and aligned.
+
+None of that reaches a script. When output is piped, or with `--json` or `--quiet`, every command prints the same plain text as before, with no colour and no escape codes. `NO_COLOR` and `--no-color` switch colour off in a terminal too, and `CHARGELIGHT_NO_ANIMATION=1` keeps things still.
 
 ## Recipes
 
@@ -203,7 +220,7 @@ Nothing about the CLI is specific to Claude. Any tool with lifecycle hooks can d
 Add the Swift package and import `ChargeLight`:
 
 ```swift
-.package(url: "https://github.com/TaraxioT/chargelight.git", from: "0.2.0")
+.package(url: "https://github.com/TaraxioT/chargelight.git", from: "0.3.0")
 // ...
 .product(name: "ChargeLight", package: "chargelight")
 ```

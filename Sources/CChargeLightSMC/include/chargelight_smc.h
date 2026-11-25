@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /* The version of the CLI and the library. */
-#define CL_VERSION "0.2.0"
+#define CL_VERSION "0.3.0"
 
 /* The version of chargelight-helper, the root binary installed by
  * `sudo chargelight setup`. It changes only when the helper itself changes, so

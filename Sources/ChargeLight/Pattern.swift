@@ -135,6 +135,9 @@ public struct Pattern: Equatable, Sendable {
         return try Pattern(steps: steps, name: name)
     }
 
+    /// Morse code for letters and digits: `.` and `-`, e.g. `"A": ".-"`.
+    public static var morseCodeTable: [Character: String] { morseCode }
+
     static let morseCode: [Character: String] = [
         "A": ".-", "B": "-...", "C": "-.-.", "D": "-..", "E": ".", "F": "..-.", "G": "--.", "H": "....",
         "I": "..", "J": ".---", "K": "-.-", "L": ".-..", "M": "--", "N": "-.", "O": "---", "P": ".--.",

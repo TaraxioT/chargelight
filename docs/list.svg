@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 912 378" width="912" height="378" role="img" aria-label="chargelight list">
+<rect width="912" height="378" rx="12" fill="#15171c"/>
+<rect x="0.5" y="0.5" width="911" height="377" rx="11.5" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+<circle cx="22" cy="20" r="6" fill="#ff5f57"/><circle cx="42" cy="20" r="6" fill="#febc2e"/><circle cx="62" cy="20" r="6" fill="#28c840"/>
+<text x="456.0" y="25" text-anchor="middle" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="13" fill="#8b8b93">chargelight list</text>
+<g font-family="'SF Mono', Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="14">
+<text x="22.0 30.6 39.2 47.8 56.4 65.0" y="52" fill="#e6e6ea" font-weight="700">States</text>
+<text x="90.8 99.4 108.0 116.6 125.2" y="52" fill="#6e6e73">idle:</text>
+<text x="142.4 151.0 159.6 168.2 176.8 185.4" y="52" fill="#6e6e73">system</text>
+<text x="39.2" y="71" fill="#6e6e73">◌</text>
+<text x="56.4 65.0 73.6 82.2 90.8 99.4" y="71" fill="#e6e6ea">system</text>
+<text x="133.8" y="71" fill="#6e6e73">○</text>
+<text x="151.0 159.6 168.2" y="71" fill="#e6e6ea">off</text>
+<text x="202.6" y="71" fill="#30d158">●</text>
+<text x="219.8 228.4 237.0 245.6 254.2" y="71" fill="#e6e6ea">green</text>
+<text x="288.6" y="71" fill="#ff9f0a">●</text>
+<text x="305.8 314.4 323.0 331.6 340.2" y="71" fill="#e6e6ea">amber</text>
+<text x="374.6" y="71" fill="#ff9f0a">●</text>
+<text x="391.8 400.4 409.0 417.6 426.2 434.8 443.4 452.0 460.6 469.2" y="71" fill="#e6e6ea">blink-slow</text>
+<text x="503.6" y="71" fill="#ff9f0a">●</text>
+<text x="520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2" y="71" fill="#e6e6ea">blink-fast</text>
+<text x="22.0 30.6 39.2 47.8 56.4 65.0 73.6" y="109" fill="#e6e6ea" font-weight="700">Presets</text>
+<text x="39.2 47.8 56.4 65.0" y="128" fill="#6e6e73">NAME</text>
+<text x="133.8 142.4 151.0" y="128" fill="#6e6e73">LED</text>
+<text x="254.2 262.8 271.4" y="128" fill="#6e6e73">PRI</text>
+<text x="297.2 305.8 314.4" y="128" fill="#6e6e73">TTL</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0" y="147" fill="#e6e6ea">attention</text>
+<text x="133.8" y="147" fill="#ff9f0a">●</text>
+<text x="151.0 159.6 168.2 176.8 185.4 194.0 202.6 211.2 219.8 228.4" y="147" fill="#e6e6ea">blink-fast</text>
+<text x="254.2 262.8" y="147" fill="#e6e6ea">30</text>
+<text x="297.2 305.8" y="147" fill="#e6e6ea">2h</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8" y="166" fill="#e6e6ea">working</text>
+<text x="133.8" y="166" fill="#ff9f0a">●</text>
+<text x="151.0 159.6 168.2 176.8 185.4" y="166" fill="#e6e6ea">amber</text>
+<text x="254.2 262.8" y="166" fill="#e6e6ea">20</text>
+<text x="297.2 305.8 314.4" y="166" fill="#e6e6ea">30m</text>
+<text x="39.2 47.8 56.4 65.0 73.6" y="185" fill="#e6e6ea">ready</text>
+<text x="133.8" y="185" fill="#30d158">●</text>
+<text x="151.0 159.6 168.2 176.8 185.4" y="185" fill="#e6e6ea">green</text>
+<text x="254.2 262.8" y="185" fill="#e6e6ea">10</text>
+<text x="297.2 305.8 314.4" y="185" fill="#e6e6ea">10m</text>
+<text x="22.0 30.6 39.2 47.8 56.4 65.0 73.6 82.2" y="223" fill="#e6e6ea" font-weight="700">Patterns</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0" y="242" fill="#e6e6ea">alternate</text>
+<text x="194.0 202.6" y="242" fill="#ff9f0a">▇▇</text>
+<text x="211.2 219.8" y="242" fill="#30d158">▇▇</text>
+<text x="228.4 237.0" y="242" fill="#ff9f0a">▇▇</text>
+<text x="245.6 254.2" y="242" fill="#30d158">▇▇</text>
+<text x="262.8 271.4" y="242" fill="#ff9f0a">▇▇</text>
+<text x="280.0 288.6" y="242" fill="#30d158">▇▇</text>
+<text x="297.2 305.8" y="242" fill="#ff9f0a">▇▇</text>
+<text x="314.4 323.0" y="242" fill="#30d158">▇▇</text>
+<text x="331.6 340.2" y="242" fill="#ff9f0a">▇▇</text>
+<text x="348.8 357.4" y="242" fill="#30d158">▇▇</text>
+<text x="366.0 374.6" y="242" fill="#ff9f0a">▇▇</text>
+<text x="383.2 391.8" y="242" fill="#30d158">▇▇</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0 632.6 641.2" y="242" fill="#6e6e73">amber:400,green:400</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2" y="261" fill="#e6e6ea">blink-green</text>
+<text x="194.0 202.6" y="261" fill="#30d158">▇▇</text>
+<text x="211.2 219.8" y="261" fill="#6e6e73">░░</text>
+<text x="228.4 237.0" y="261" fill="#30d158">▇▇</text>
+<text x="245.6 254.2" y="261" fill="#6e6e73">░░</text>
+<text x="262.8 271.4" y="261" fill="#30d158">▇▇</text>
+<text x="280.0 288.6" y="261" fill="#6e6e73">░░</text>
+<text x="297.2 305.8" y="261" fill="#30d158">▇▇</text>
+<text x="314.4 323.0" y="261" fill="#6e6e73">░░</text>
+<text x="331.6 340.2" y="261" fill="#30d158">▇▇</text>
+<text x="348.8 357.4" y="261" fill="#6e6e73">░░</text>
+<text x="366.0 374.6" y="261" fill="#30d158">▇▇</text>
+<text x="383.2 391.8" y="261" fill="#6e6e73">░░</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0" y="261" fill="#6e6e73">green:500,off:500</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2 133.8 142.4 151.0 159.6 168.2" y="280" fill="#e6e6ea">blink-green-fast</text>
+<text x="194.0" y="280" fill="#30d158">▇</text>
+<text x="202.6" y="280" fill="#6e6e73">░</text>
+<text x="211.2" y="280" fill="#30d158">▇</text>
+<text x="219.8" y="280" fill="#6e6e73">░</text>
+<text x="228.4" y="280" fill="#30d158">▇</text>
+<text x="237.0" y="280" fill="#6e6e73">░</text>
+<text x="245.6" y="280" fill="#30d158">▇</text>
+<text x="254.2" y="280" fill="#6e6e73">░</text>
+<text x="262.8" y="280" fill="#30d158">▇</text>
+<text x="271.4" y="280" fill="#6e6e73">░</text>
+<text x="280.0" y="280" fill="#30d158">▇</text>
+<text x="288.6" y="280" fill="#6e6e73">░</text>
+<text x="297.2" y="280" fill="#30d158">▇</text>
+<text x="305.8" y="280" fill="#6e6e73">░</text>
+<text x="314.4" y="280" fill="#30d158">▇</text>
+<text x="323.0" y="280" fill="#6e6e73">░</text>
+<text x="331.6" y="280" fill="#30d158">▇</text>
+<text x="340.2" y="280" fill="#6e6e73">░</text>
+<text x="348.8" y="280" fill="#30d158">▇</text>
+<text x="357.4" y="280" fill="#6e6e73">░</text>
+<text x="366.0" y="280" fill="#30d158">▇</text>
+<text x="374.6" y="280" fill="#6e6e73">░</text>
+<text x="383.2" y="280" fill="#30d158">▇</text>
+<text x="391.8" y="280" fill="#6e6e73">░</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0" y="280" fill="#6e6e73">green:150,off:150</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0" y="299" fill="#e6e6ea">heartbeat</text>
+<text x="194.0" y="299" fill="#ff9f0a">▇</text>
+<text x="202.6" y="299" fill="#6e6e73">░</text>
+<text x="211.2" y="299" fill="#ff9f0a">▇</text>
+<text x="219.8 228.4 237.0 245.6 254.2 262.8 271.4" y="299" fill="#6e6e73">░░░░░░░</text>
+<text x="280.0" y="299" fill="#ff9f0a">▇</text>
+<text x="288.6" y="299" fill="#6e6e73">░</text>
+<text x="297.2" y="299" fill="#ff9f0a">▇</text>
+<text x="305.8 314.4 323.0 331.6 340.2 348.8 357.4" y="299" fill="#6e6e73">░░░░░░░</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0 632.6 641.2 649.8 658.4 667.0 675.6 684.2 692.8 701.4 710.0 718.6 727.2 735.8 744.4 753.0 761.6 770.2 778.8" y="299" fill="#6e6e73">amber:120,off:120,amber:120,off:840</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2 133.8 142.4 151.0 159.6" y="318" fill="#e6e6ea">heartbeat-green</text>
+<text x="194.0" y="318" fill="#30d158">▇</text>
+<text x="202.6" y="318" fill="#6e6e73">░</text>
+<text x="211.2" y="318" fill="#30d158">▇</text>
+<text x="219.8 228.4 237.0 245.6 254.2 262.8 271.4" y="318" fill="#6e6e73">░░░░░░░</text>
+<text x="280.0" y="318" fill="#30d158">▇</text>
+<text x="288.6" y="318" fill="#6e6e73">░</text>
+<text x="297.2" y="318" fill="#30d158">▇</text>
+<text x="305.8 314.4 323.0 331.6 340.2 348.8 357.4" y="318" fill="#6e6e73">░░░░░░░</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0 632.6 641.2 649.8 658.4 667.0 675.6 684.2 692.8 701.4 710.0 718.6 727.2 735.8 744.4 753.0 761.6 770.2 778.8" y="318" fill="#6e6e73">green:120,off:120,green:120,off:840</text>
+<text x="39.2 47.8 56.4" y="337" fill="#e6e6ea">sos</text>
+<text x="194.0" y="337" fill="#ff9f0a">▇</text>
+<text x="202.6" y="337" fill="#6e6e73">░</text>
+<text x="211.2" y="337" fill="#ff9f0a">▇</text>
+<text x="219.8" y="337" fill="#6e6e73">░</text>
+<text x="228.4" y="337" fill="#ff9f0a">▇</text>
+<text x="237.0 245.6 254.2" y="337" fill="#6e6e73">░░░</text>
+<text x="262.8 271.4" y="337" fill="#ff9f0a">▇▇</text>
+<text x="280.0" y="337" fill="#6e6e73">░</text>
+<text x="288.6 297.2 305.8" y="337" fill="#ff9f0a">▇▇▇</text>
+<text x="314.4" y="337" fill="#6e6e73">░</text>
+<text x="323.0 331.6 340.2" y="337" fill="#ff9f0a">▇▇▇</text>
+<text x="348.8 357.4 366.0" y="337" fill="#6e6e73">░░░</text>
+<text x="374.6" y="337" fill="#ff9f0a">▇</text>
+<text x="383.2" y="337" fill="#6e6e73">░</text>
+<text x="391.8 400.4" y="337" fill="#ff9f0a">▇▇</text>
+<text x="409.0 417.6 426.2 434.8 443.4 452.0 460.6" y="337" fill="#6e6e73">░░░░░░░</text>
+<text x="486.4 495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6 598.2 606.8 615.4 624.0 632.6 641.2 649.8 658.4 667.0 675.6 684.2 692.8 701.4 710.0 718.6 727.2 735.8 744.4 753.0 761.6 770.2 778.8 787.4 796.0 804.6 813.2 821.8 830.4 839.0 847.6 856.2 864.8" y="337" fill="#6e6e73">amber:150,off:150,amber:150,off:150,amber:15…</text>
+</g></svg>

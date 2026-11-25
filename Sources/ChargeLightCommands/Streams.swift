@@ -132,7 +132,7 @@ final class SignalTrap {
 
 /// Ignores SIGPIPE until restored, so writing to a closed pipe fails with
 /// `EPIPE` instead of killing the process.
-private func ignoreSIGPIPE() -> () -> Void {
+func ignoreSIGPIPE() -> () -> Void {
     let previous = signal(SIGPIPE, SIG_IGN)
     return { signal(SIGPIPE, previous) }
 }
@@ -143,6 +143,7 @@ extension CLI {
     func watchCommand(options: [String: String]) throws -> CommandOutput {
         let count = try options["--count"].map { try integer($0, option: "--count", in: 1...1_000_000) }
         let light = try makeLight()
+        if fancy && count == nil { return liveWatch(light: light) }
         let restore = ignoreSIGPIPE()
         defer { restore() }
         let clock = DateFormatter()
@@ -155,10 +156,7 @@ extension CLI {
             let now = Date()
             let snapshot = light.snapshot(now: now)
             let winner = winningClaim(snapshot.claims, light.configuration)
-            // Renewals only move expiry times; they are not changes worth a line.
-            let key = ([snapshot.desired.description, winner?.id ?? "", snapshot.override.map { "\($0.show)@\($0.expiresAt?.timeIntervalSince1970 ?? 0)" } ?? ""]
-                + snapshot.claims.map { "\($0.id)\u{1}\($0.show)\u{1}\($0.priority)\u{1}\($0.label ?? "")" }.sorted())
-                .joined(separator: "\u{0}")
+            let key = changeKey(snapshot, winner: winner)
             if key != last {
                 last = key
                 if json {
@@ -180,6 +178,14 @@ extension CLI {
             Thread.sleep(forTimeInterval: watchInterval)
         }
         return CommandOutput(silent: true)
+    }
+
+    /// Identifies what `watch` reports. Renewals only move expiry times; they
+    /// are not changes worth a line.
+    func changeKey(_ snapshot: Snapshot, winner: Claim?) -> String {
+        ([snapshot.desired.description, winner?.id ?? "", snapshot.override.map { "\($0.show)@\($0.expiresAt?.timeIntervalSince1970 ?? 0)" } ?? ""]
+            + snapshot.claims.map { "\($0.id)\u{1}\($0.show)\u{1}\($0.priority)\u{1}\($0.label ?? "")" }.sorted())
+            .joined(separator: "\u{0}")
     }
 
     // MARK: - pipe
