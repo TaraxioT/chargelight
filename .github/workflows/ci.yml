@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift:
+    name: Build and test (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Build
+        run: swift build -c release
+      - name: Test
+        run: swift test
+      - name: Smoke test (simulated LED, no hardware)
+        env:
+          CHARGELIGHT_BACKEND: file
+          CHARGELIGHT_NO_WATCHER: "1"
+        run: |
+          export CHARGELIGHT_HOME="$RUNNER_TEMP/chargelight"
+          bin=.build/release/chargelight
+          "$bin" --version
+          "$bin" claim ci working --label "ci" --json
+          test "$("$bin" get)" = amber
+          echo '{"hook_event_name":"PermissionRequest","session_id":"ci"}' | "$bin" hook
+          test "$("$bin" get)" = blink-fast
+          "$bin" reset --json
+          test "$("$bin" get)" = system
+          .build/release/chargelight-helper --version
+
+  plugin:
+    name: Plugin lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manifests are valid JSON
+        run: jq -e . .claude-plugin/marketplace.json plugin/.claude-plugin/plugin.json plugin/hooks/hooks.json > /dev/null
+      - name: Versions agree
+        run: |
+          core=$(sed -n 's/^#define CL_VERSION "\(.*\)"/\1/p' Sources/CChargeLightSMC/include/chargelight_smc.h)
+          plugin=$(jq -r .version plugin/.claude-plugin/plugin.json)
+          echo "core=$core plugin=$plugin"
+          test -n "$core" && test "$core" = "$plugin"
+      - name: Scripts
+        run: |
+          shellcheck -s sh plugin/scripts/*.sh
+          test -x plugin/scripts/hook.sh && test -x plugin/scripts/setup-notice.sh
