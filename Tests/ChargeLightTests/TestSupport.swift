@@ -90,7 +90,8 @@ struct CLIRun {
 }
 
 func runCLI(
-    _ arguments: [String], environment: [String: String], stdin: String = "", stamp: UInt64? = nil
+    _ arguments: [String], environment: [String: String], stdin: String = "", stamp: UInt64? = nil,
+    terminal: TerminalFacts = TerminalFacts()
 ) -> CLIRun {
     var out = ""
     var err = ""
@@ -100,7 +101,7 @@ func runCLI(
         arguments: arguments, environment: environment, stdin: { Data(stdin.utf8) },
         readLine: { lines.isEmpty ? nil : lines.removeFirst() },
         stdout: { out += $0 }, stderr: { err += $0 },
-        stamp: stamp ?? Claim.currentStamp(), executablePath: "/nonexistent/chargelight")
+        stamp: stamp ?? Claim.currentStamp(), executablePath: "/nonexistent/chargelight", terminal: terminal)
     return CLIRun(code: code, stdout: out, stderr: err)
 }
 
@@ -114,13 +115,16 @@ final class CLIHarness {
     var stdout: String { lock.lock(); defer { lock.unlock() }; return out }
     var stderr: String { lock.lock(); defer { lock.unlock() }; return err }
 
-    init(environment: [String: String], readLine: @escaping () -> String? = { nil }) {
+    init(
+        environment: [String: String], readLine: @escaping () -> String? = { nil },
+        terminal: TerminalFacts = TerminalFacts()
+    ) {
         var appendOut: (String) -> Void = { _ in }
         var appendErr: (String) -> Void = { _ in }
         cli = CLI(
             environment: environment, stdin: { Data() }, readLine: readLine,
             stdout: { appendOut($0) }, stderr: { appendErr($0) },
-            stamp: Claim.currentStamp(), executablePath: "/nonexistent/chargelight")
+            stamp: Claim.currentStamp(), executablePath: "/nonexistent/chargelight", terminal: { terminal })
         appendOut = { [unowned self] text in lock.lock(); out += text; lock.unlock() }
         appendErr = { [unowned self] text in lock.lock(); err += text; lock.unlock() }
     }

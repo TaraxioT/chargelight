@@ -46,6 +46,7 @@ extension CLI {
         let trap = SignalTrap { sig in child.forward(sig) }
         defer { trap.remove() }
 
+        let started = Date()
         do {
             try child.start(path: path, arguments: command, environment: environment, resetSignals: trap.signals)
         } catch {
@@ -60,6 +61,11 @@ extension CLI {
             try keeper.finish(show: ok ? succeeded : failed, ttl: keep ?? (ok ? 10 : 60))
         } catch {
             writeErr("chargelight: run: \(ChargeLightError.wrap(error).message)\n")
+        }
+        // The command owned the terminal; afterwards, one line on how it went.
+        if errorStyle.interactive && !quiet && !json {
+            writeErr(runSummary(
+                name: URL(fileURLWithPath: name).lastPathComponent, status: status, seconds: Date().timeIntervalSince(started), led: light.snapshot().desired) + "\n")
         }
         return CommandOutput(silent: true, exitCode: status)
     }

@@ -19,6 +19,9 @@ import Foundation
 ///     finished later cannot override a newer one.
 ///   - executablePath: The `chargelight` binary, used to start the watcher and
 ///     to find the helper during `setup`. Defaults to the running executable.
+///   - terminal: Whether standard input, output and error are terminals, and
+///     the terminal's size. Defaults to what `isatty` and `TIOCGWINSZ` say.
+///     Only an interactive terminal gets colour, animation and `play`.
 /// - Returns: 0 ok, 1 failure, 2 usage, 3 unsupported hardware, 4 setup
 ///   required, 5 not privileged, 6 SMC error; for `run`, the command's status.
 public func runChargeLight(
@@ -29,12 +32,13 @@ public func runChargeLight(
     stdout: @escaping (String) -> Void = { StandardOutput.shared.write($0) },
     stderr: @escaping (String) -> Void = { FileHandle.standardError.write(Data($0.utf8)) },
     stamp: UInt64 = Claim.currentStamp(),
-    executablePath: String? = nil
+    executablePath: String? = nil,
+    terminal: TerminalFacts? = nil
 ) -> Int32 {
     let cli = CLI(
         environment: environment, stdin: stdin, readLine: readLine, stdout: stdout, stderr: stderr,
         stamp: stamp, executablePath: executablePath ?? CLI.currentExecutablePath(),
-        outputClosed: { StandardOutput.shared.isClosed })
+        outputClosed: { StandardOutput.shared.isClosed }, terminal: { terminal ?? TerminalFacts.detect() })
     return cli.run(arguments)
 }
 
@@ -98,6 +102,7 @@ struct Invocation: Equatable {
     var quiet = false
     var help = false
     var version = false
+    var noColor = false
 
     static let valueOptions: Set<String> = [
         "--ttl", "--label", "--as", "--for", "--times", "--priority", "--color", "--unit", "--count",
@@ -130,6 +135,7 @@ struct Invocation: Equatable {
             case "--quiet", "-q": result.quiet = true
             case "--help", "-h": result.help = true
             case "--version": result.version = true
+            case "--no-color": result.noColor = true
             default:
                 var name = arg
                 var value: String?
@@ -195,6 +201,13 @@ final class CLI {
     let outputClosed: () -> Bool
     var json = false
     var quiet = false
+    /// Where output goes and what it can show; read lazily (the hook never needs it).
+    private let detectTerminal: () -> TerminalFacts
+    lazy var terminal: TerminalFacts = detectTerminal()
+    /// How standard output is drawn; ``Style/plain`` until the command line is parsed.
+    var style = Style.plain
+    /// How standard error is drawn.
+    var errorStyle = Style.plain
     /// Seconds each `demo` step is shown.
     var demoStep: TimeInterval = 2
     /// Seconds between claim renewals for `run` and `pipe`.
@@ -206,8 +219,10 @@ final class CLI {
         environment: [String: String], stdin: @escaping () -> Data,
         readLine: @escaping () -> String? = { nil }, stdout: @escaping (String) -> Void,
         stderr: @escaping (String) -> Void, stamp: UInt64, executablePath: String,
-        outputClosed: @escaping () -> Bool = { false }
+        outputClosed: @escaping () -> Bool = { false },
+        terminal: @escaping () -> TerminalFacts = { TerminalFacts() }
     ) {
+        self.detectTerminal = terminal
         self.environment = environment
         self.readStdin = stdin
         self.readLine = readLine
@@ -225,6 +240,7 @@ final class CLI {
         CommandSpec(name: "flash", options: ["--times", "--wait"], summary: "flash, then go back to what was showing"),
         CommandSpec(name: "morse", options: ["--color", "--unit", "--wait"], summary: "spell text in Morse code"),
         CommandSpec(name: "demo", options: [], summary: "show states and patterns, then restore"),
+        CommandSpec(name: "play", options: [], summary: "try every state and pattern from the keyboard"),
         CommandSpec(name: "claim", options: ["--priority", "--ttl", "--label"], summary: "claim the shared light"),
         CommandSpec(name: "release", options: [], summary: "drop a claim"),
         CommandSpec(name: "reset", options: [], summary: "drop every claim and any override"),
@@ -253,11 +269,14 @@ final class CLI {
             runHook(arguments)
             return 0
         }
-        json = arguments.prefix(while: { $0 != "--" }).contains("--json")
+        let options = arguments.prefix(while: { $0 != "--" })
+        json = options.contains("--json")
+        errorStyle = Style.forStandardError(facts: terminal, environment: environment, noColor: options.contains("--no-color"))
         do {
             let invocation = try Invocation.parse(arguments)
             json = invocation.json
             quiet = invocation.quiet
+            style = Style(facts: terminal, environment: environment, noColor: invocation.noColor)
             let output = try dispatch(invocation)
             emit(output)
             return output.exitCode ?? (output.ok ? 0 : 1)
@@ -308,6 +327,7 @@ final class CLI {
             }
             return try morseCommand(args.joined(separator: " "), options: options, wait: wait)
         case "demo": try expect(args, 0, command); return try demoCommand()
+        case "play": try expect(args, 0, command); return try playCommand()
         case "claim":
             try expect(args, 2, command, usage: "claim <id> <state|pattern|preset> [--priority N] [--ttl 10m] [--label text]")
             return try claimCommand(id: args[0], show: args[1], options: options)
@@ -364,15 +384,19 @@ final class CLI {
         if json {
             writeOut(JSON.error(error).serialized + "\n")
         } else {
-            writeErr("chargelight: \(error.message)\n")
+            writeErr(errorStyle.render(Span("chargelight:", .red)) + " \(error.message)\n")
         }
         return error.exitCode
     }
 
     /// Prints a warning on stderr in human mode (not with `--json` or `--quiet`).
     func warn(_ message: String) {
-        if !json && !quiet { writeErr("chargelight: warning: \(message)\n") }
+        if !json && !quiet { writeErr(errorStyle.render(Span("chargelight: warning:", .amber)) + " \(message)\n") }
     }
+
+    /// Whether to use the interactive layouts: a terminal, and neither
+    /// `--json` nor `--quiet`.
+    var fancy: Bool { style.interactive && !json && !quiet }
 
     // MARK: - Environment
 
@@ -405,7 +429,7 @@ final class CLI {
     }
 
     func helpCommand() -> CommandOutput {
-        CommandOutput(fields: ["help": .string(CLI.helpText)], text: CLI.helpText)
+        CommandOutput(fields: ["help": .string(CLI.helpText)], text: fancy ? fancyHelp() : CLI.helpText)
     }
 
     static let helpText: String = {
@@ -418,6 +442,7 @@ final class CLI {
             chargelight \(ChargeLight.version) - program the LED on your MagSafe charger
 
             Try it
+              chargelight play               try every state and pattern from the keyboard
               chargelight amber              solid amber, until you change it
               chargelight flash green        flash green three times, then back to what it was
               chargelight morse hi           spell "hi" in Morse code
@@ -435,6 +460,7 @@ final class CLI {
               morse <text> [--color amber|green] [--unit 150] [--wait]
                                              spell text once in Morse code (unit in ms, 50 to 1000)
               demo                           show states and patterns for ~2 s each, then restore
+              play                           interactive panel: keys switch the light (needs a terminal)
 
             Shared light: anything can claim the LED; the highest priority wins, claims expire
               claim <id> <show|preset> [--priority N] [--ttl 10m] [--label text]
@@ -477,6 +503,7 @@ final class CLI {
 
             Options    --json         print one JSON object on stdout (watch, pipe: one per line)
                        -q, --quiet    print nothing on success
+                       --no-color     no colour in a terminal (also: NO_COLOR=1)
                        -h, --help     --version
 
             Exit codes 0 ok, 1 failure, 2 usage, 3 unsupported hardware, 4 setup required,
@@ -489,6 +516,7 @@ final class CLI {
               CHARGELIGHT_HELPER          helper path (/Library/PrivilegedHelperTools/chargelight-helper)
               CHARGELIGHT_NO_WATCHER=1    do not start the background watcher (patterns show one step)
               CHARGELIGHT_DEBUG=1         log hook errors to $CHARGELIGHT_HOME/hook.log
+              CHARGELIGHT_NO_ANIMATION=1  no animation in the terminal
             """
     }()
 }

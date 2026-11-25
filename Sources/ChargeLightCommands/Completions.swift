@@ -90,6 +90,7 @@ enum Completions {
               names=(\(names.joined(separator: " ")))
               global=(
                 '--json[print JSON]'
+                '--no-color[no colour in the terminal]'
                 '(-q --quiet)'{-q,--quiet}'[print nothing on success]'
                 '(-h --help)'{-h,--help}'[show help]'
               )
@@ -144,7 +145,7 @@ enum Completions {
                 local patterns="\(patterns.joined(separator: " "))"
                 local presets="\(presets.joined(separator: " "))"
                 local value_options=" \(valueOptions.joined(separator: " ")) "
-                local global="--json --quiet --help"
+                local global="--json --quiet --no-color --help"
                 local i word cmd="" npos=0 skip=0
 
                 for ((i = 1; i < COMP_CWORD; i++)); do
@@ -232,6 +233,7 @@ enum Completions {
             "",
             "# Global options",
             "complete -c chargelight -l json -d 'print JSON'",
+            "complete -c chargelight -l no-color -d 'no colour in the terminal'",
             "complete -c chargelight -s q -l quiet -d 'print nothing on success'",
             "complete -c chargelight -s h -l help -d 'show help'",
             "complete -c chargelight -l version -d 'print the version'",

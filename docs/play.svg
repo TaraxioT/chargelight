@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 921 511" width="921" height="511" role="img" aria-label="chargelight play">
+<rect width="921" height="511" rx="12" fill="#15171c"/>
+<rect x="0.5" y="0.5" width="920" height="510" rx="11.5" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+<circle cx="22" cy="20" r="6" fill="#ff5f57"/><circle cx="42" cy="20" r="6" fill="#febc2e"/><circle cx="62" cy="20" r="6" fill="#28c840"/>
+<text x="460.5" y="25" text-anchor="middle" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="13" fill="#8b8b93">chargelight play</text>
+<g font-family="'SF Mono', Menlo, Monaco, 'DejaVu Sans Mono', monospace" font-size="14">
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2" y="71" fill="#e6e6ea" font-weight="700">chargelight</text>
+<text x="142.4 151.0 159.6 168.2" y="71" fill="#e6e6ea" font-weight="700">play</text>
+<text x="839.0 847.6 856.2 864.8 873.4" y="71" fill="#6e6e73">0.3.0</text>
+<text x="151.0 159.6 168.2 176.8 185.4 194.0 202.6 211.2 219.8 228.4 237.0 245.6 254.2 262.8 271.4 280.0" y="109" fill="#e6e6ea">╭──────────────╮</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2 133.8 142.4 151.0" y="128" fill="#e6e6ea">━━━━━━━━━━━━━┥</text>
+<text x="211.2" y="128" fill="#ff9f0a">●</text>
+<text x="280.0 288.6" y="128" fill="#e6e6ea">│▌</text>
+<text x="151.0 159.6 168.2 176.8 185.4 194.0 202.6 211.2 219.8 228.4 237.0 245.6 254.2 262.8 271.4 280.0" y="147" fill="#e6e6ea">╰──────────────╯</text>
+<text x="39.2 47.8 56.4 65.0 73.6 82.2 90.8 99.4 108.0" y="185" fill="#e6e6ea" font-weight="700">heartbeat</text>
+<text x="133.8 142.4 151.0 159.6 168.2 176.8 185.4 194.0 202.6 211.2 219.8 228.4 237.0 245.6 254.2 262.8 271.4 280.0 288.6 297.2 305.8 314.4 323.0 331.6 340.2 348.8 357.4 366.0 374.6 383.2 391.8 400.4 409.0 417.6 426.2" y="185" fill="#6e6e73">amber:120,off:120,amber:120,off:840</text>
+<text x="39.2" y="204" fill="#ff9f0a">▇</text>
+<text x="47.8" y="204" fill="#6e6e73">░</text>
+<text x="56.4" y="204" fill="#ff9f0a">▇</text>
+<text x="65.0 73.6 82.2 90.8 99.4 108.0 116.6" y="204" fill="#6e6e73">░░░░░░░</text>
+<text x="125.2" y="204" fill="#ff9f0a">▇</text>
+<text x="133.8" y="204" fill="#6e6e73">░</text>
+<text x="142.4" y="204" fill="#ff9f0a">▇</text>
+<text x="151.0 159.6 168.2 176.8 185.4 194.0 202.6" y="204" fill="#6e6e73">░░░░░░░</text>
+<text x="56.4" y="223" fill="#e6e6ea">▲</text>
+<text x="39.2 47.8 56.4 65.0" y="242" fill="#6e6e73">held</text>
+<text x="82.2 90.8" y="242" fill="#6e6e73">by</text>
+<text x="108.0 116.6 125.2" y="242" fill="#6e6e73">you</text>
+<text x="142.4 151.0 159.6 168.2 176.8 185.4" y="242" fill="#6e6e73">(play)</text>
+<text x="39.2" y="280" fill="#e6e6ea" font-weight="700">a</text>
+<text x="56.4 65.0 73.6 82.2 90.8" y="280" fill="#6e6e73">amber</text>
+<text x="125.2" y="280" fill="#e6e6ea" font-weight="700">g</text>
+<text x="142.4 151.0 159.6 168.2 176.8" y="280" fill="#6e6e73">green</text>
+<text x="211.2" y="280" fill="#e6e6ea" font-weight="700">o</text>
+<text x="228.4 237.0 245.6" y="280" fill="#6e6e73">off</text>
+<text x="280.0" y="280" fill="#e6e6ea" font-weight="700">s</text>
+<text x="297.2 305.8 314.4 323.0 331.6 340.2 348.8 357.4 366.0 374.6" y="280" fill="#6e6e73">blink-slow</text>
+<text x="409.0" y="280" fill="#e6e6ea" font-weight="700">f</text>
+<text x="426.2 434.8 443.4 452.0 460.6 469.2 477.8 486.4 495.0 503.6" y="280" fill="#6e6e73">blink-fast</text>
+<text x="39.2" y="299" fill="#e6e6ea" font-weight="700">1</text>
+<text x="56.4 65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2" y="299" fill="#6e6e73">alternate</text>
+<text x="159.6" y="299" fill="#e6e6ea" font-weight="700">2</text>
+<text x="176.8 185.4 194.0 202.6 211.2 219.8 228.4 237.0 245.6 254.2 262.8" y="299" fill="#6e6e73">blink-green</text>
+<text x="297.2" y="299" fill="#e6e6ea" font-weight="700">3</text>
+<text x="314.4 323.0 331.6 340.2 348.8 357.4 366.0 374.6 383.2 391.8 400.4 409.0 417.6 426.2 434.8 443.4" y="299" fill="#6e6e73">blink-green-fast</text>
+<text x="477.8" y="299" fill="#e6e6ea" font-weight="700">4</text>
+<text x="495.0 503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8" y="299" fill="#6e6e73">heartbeat</text>
+<text x="598.2" y="299" fill="#e6e6ea" font-weight="700">5</text>
+<text x="615.4 624.0 632.6 641.2 649.8 658.4 667.0 675.6 684.2 692.8 701.4 710.0 718.6 727.2 735.8" y="299" fill="#6e6e73">heartbeat-green</text>
+<text x="770.2" y="299" fill="#e6e6ea" font-weight="700">6</text>
+<text x="787.4 796.0 804.6" y="299" fill="#6e6e73">sos</text>
+<text x="39.2 47.8 56.4 65.0 73.6" y="318" fill="#e6e6ea" font-weight="700">space</text>
+<text x="90.8 99.4 108.0 116.6 125.2" y="318" fill="#6e6e73">flash</text>
+<text x="159.6" y="318" fill="#e6e6ea" font-weight="700">m</text>
+<text x="176.8 185.4 194.0 202.6 211.2" y="318" fill="#6e6e73">morse</text>
+<text x="245.6" y="318" fill="#e6e6ea" font-weight="700">x</text>
+<text x="262.8 271.4 280.0 288.6 297.2 305.8" y="318" fill="#6e6e73">system</text>
+<text x="39.2 47.8 56.4" y="356" fill="#6e6e73">who</text>
+<text x="73.6 82.2 90.8 99.4 108.0" y="356" fill="#6e6e73">holds</text>
+<text x="125.2 133.8 142.4" y="356" fill="#6e6e73">the</text>
+<text x="159.6 168.2 176.8 185.4 194.0" y="356" fill="#6e6e73">light</text>
+<text x="65.0 73.6 82.2 90.8" y="375" fill="#6e6e73">SHOW</text>
+<text x="159.6 168.2 176.8" y="375" fill="#6e6e73">LED</text>
+<text x="271.4 280.0 288.6" y="375" fill="#6e6e73">PRI</text>
+<text x="314.4 323.0 331.6 340.2 348.8 357.4 366.0" y="375" fill="#6e6e73">EXPIRES</text>
+<text x="391.8 400.4 409.0 417.6 426.2" y="375" fill="#6e6e73">LABEL</text>
+<text x="503.6 512.2" y="375" fill="#6e6e73">ID</text>
+<text x="39.2" y="394" fill="#e6e6ea" font-weight="700">▶</text>
+<text x="65.0 73.6 82.2 90.8 99.4 108.0 116.6 125.2 133.8" y="394" fill="#e6e6ea" font-weight="700">heartbeat</text>
+<text x="159.6" y="394" fill="#ff9f0a">●</text>
+<text x="176.8 185.4 194.0 202.6 211.2 219.8 228.4 237.0 245.6" y="394" fill="#e6e6ea">heartbeat</text>
+<text x="271.4 280.0 288.6" y="394" fill="#6e6e73">top</text>
+<text x="314.4" y="394" fill="#e6e6ea">-</text>
+<text x="391.8" y="394" fill="#6e6e73">-</text>
+<text x="503.6 512.2 520.8" y="394" fill="#e6e6ea" font-weight="700">you</text>
+<text x="538.0 546.6 555.2 563.8 572.4 581.0" y="394" fill="#e6e6ea" font-weight="700">(play)</text>
+<text x="65.0 73.6 82.2 90.8 99.4 108.0 116.6" y="413" fill="#e6e6ea">working</text>
+<text x="159.6" y="413" fill="#ff9f0a">●</text>
+<text x="176.8 185.4 194.0 202.6 211.2" y="413" fill="#e6e6ea">amber</text>
+<text x="271.4 280.0" y="413" fill="#e6e6ea">20</text>
+<text x="314.4 323.0 331.6" y="413" fill="#e6e6ea">29m</text>
+<text x="391.8 400.4 409.0 417.6 426.2 434.8 443.4 452.0 460.6 469.2 477.8" y="413" fill="#e6e6ea">chargelight</text>
+<text x="503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4 581.0 589.6" y="413" fill="#e6e6ea">claude:7f3a</text>
+<text x="65.0 73.6 82.2 90.8 99.4" y="432" fill="#e6e6ea">ready</text>
+<text x="159.6" y="432" fill="#30d158">●</text>
+<text x="176.8 185.4 194.0 202.6 211.2" y="432" fill="#e6e6ea">green</text>
+<text x="271.4 280.0" y="432" fill="#e6e6ea">10</text>
+<text x="314.4 323.0" y="432" fill="#e6e6ea">9m</text>
+<text x="391.8 400.4 409.0 417.6 426.2 434.8 443.4" y="432" fill="#e6e6ea">release</text>
+<text x="503.6 512.2 520.8 529.4 538.0 546.6 555.2 563.8 572.4" y="432" fill="#e6e6ea">ci:deploy</text>
+<text x="39.2" y="470" fill="#e6e6ea" font-weight="700">q</text>
+<text x="56.4 65.0 73.6 82.2" y="470" fill="#6e6e73">quit</text>
+<text x="116.6" y="470" fill="#e6e6ea" font-weight="700">?</text>
+<text x="133.8 142.4 151.0 159.6" y="470" fill="#6e6e73">hide</text>
+<text x="176.8 185.4 194.0 202.6" y="470" fill="#6e6e73">keys</text>
+</g></svg>
