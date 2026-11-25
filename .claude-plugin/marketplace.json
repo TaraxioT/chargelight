@@ -1,0 +1,16 @@
+{
+  "name": "chargelight",
+  "description": "Turn the MacBook MagSafe charger LED into a status light for Claude Code.",
+  "owner": {
+    "name": "Taraxio",
+    "url": "https://github.com/TaraxioT"
+  },
+  "plugins": [
+    {
+      "name": "chargelight",
+      "source": "./plugin",
+      "description": "MagSafe charger LED as a Claude Code status light: amber while Claude works, fast blink when it needs you, green when it is done.",
+      "category": "productivity"
+    }
+  ]
+}
