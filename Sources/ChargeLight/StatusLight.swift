@@ -1,33 +1,68 @@
 import Foundation
 
-/// The LED state chargelight last wrote, and when.
+/// What chargelight last put on the LED, and when.
 public struct AppliedState: Codable, Equatable, Sendable {
-    /// The state written.
-    public var led: LEDState
-    /// When it was written.
+    /// What was shown: an ``LEDSpec`` description (a state, a pattern name or a pattern).
+    public var show: String
+    /// When it was applied.
     public var appliedAt: Date
 
     /// Creates a record of a write.
-    public init(led: LEDState, appliedAt: Date) {
-        self.led = led
+    public init(show: String, appliedAt: Date) {
+        self.show = show
         self.appliedAt = appliedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case show, led, appliedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Files written by 0.1 call it "led".
+        show = try c.decodeIfPresent(String.self, forKey: .show) ?? c.decode(String.self, forKey: .led)
+        appliedAt = try c.decode(Date.self, forKey: .appliedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(show, forKey: .show)
+        try c.encode(appliedAt, forKey: .appliedAt)
     }
 }
 
-/// A manual LED state that takes precedence over every claim.
+/// A manual choice of what the LED shows, taking precedence over every claim.
 public struct Override: Codable, Equatable, Sendable {
-    /// The state to show.
-    public var led: LEDState
+    /// What to show, as the caller wrote it: a state, a pattern name or a pattern.
+    public var show: String
     /// When the override was set.
     public var setAt: Date
     /// When it stops counting; `nil` means until it is cleared.
     public var expiresAt: Date?
 
     /// Creates an override.
-    public init(led: LEDState, setAt: Date, expiresAt: Date? = nil) {
-        self.led = led
+    public init(show: String, setAt: Date, expiresAt: Date? = nil) {
+        self.show = show
         self.setAt = setAt
         self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case show, led, setAt, expiresAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        show = try c.decodeIfPresent(String.self, forKey: .show) ?? c.decode(String.self, forKey: .led)
+        setAt = try c.decode(Date.self, forKey: .setAt)
+        expiresAt = try c.decodeIfPresent(Date.self, forKey: .expiresAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(show, forKey: .show)
+        try c.encode(setAt, forKey: .setAt)
+        try c.encodeIfPresent(expiresAt, forKey: .expiresAt)
     }
 
     /// Whether the override has expired at `date`.
@@ -38,9 +73,9 @@ public struct Override: Codable, Equatable, Sendable {
 
 /// The outcome of a ``StatusLight`` operation.
 public struct SyncResult: Equatable, Sendable {
-    /// The LED state called for by the override or, failing that, the claims.
+    /// What the override or, failing that, the claims call for.
     /// It is now applied if ``wrote`` is true or it already was.
-    public var led: LEDState
+    public var led: LEDSpec
     /// Whether the backend was written. `false` when the LED already matched,
     /// or when the operation was asked not to apply.
     public var wrote: Bool
@@ -66,6 +101,10 @@ public struct SyncResult: Equatable, Sendable {
     public var winner: Claim? { claims.first }
     /// Whether nothing asks for the LED: no claims and no override.
     public var isIdle: Bool { claims.isEmpty && override == nil }
+    /// When the next claim or override expires, if any will.
+    public var nextExpiry: Date? {
+        (claims.map(\.expiresAt) + [override?.expiresAt].compactMap { $0 }).min()
+    }
 }
 
 /// A read-only view of the current state.
@@ -74,8 +113,8 @@ public struct Snapshot: Equatable, Sendable {
     public var claims: [Claim]
     /// The manual override in force, if any.
     public var override: Override?
-    /// The LED state called for by the override or, failing that, the claims.
-    public var desired: LEDState
+    /// What the override or, failing that, the claims call for.
+    public var desired: LEDSpec
     /// What chargelight last wrote, if anything.
     public var applied: AppliedState?
 
@@ -85,14 +124,14 @@ public struct Snapshot: Equatable, Sendable {
     public var isIdle: Bool { claims.isEmpty && override == nil }
 }
 
-/// Turns agent claims into an LED state.
+/// Turns claims into what the LED shows.
 ///
-/// Each agent session *claims* the light with a status (working, attention,
-/// ready). The highest-priority active claim decides the LED; with no claims
-/// the LED returns to the configured idle state. A manual ``Override`` beats
-/// every claim. Claims are files under ``Paths/claimsDirectory``, so separate
-/// processes (one per hook invocation) cooperate; every mutation runs under an
-/// exclusive `flock`.
+/// Anything that wants the light *claims* it under an id of its own, saying
+/// what to show (a preset, a state or a pattern) and how much it matters. The
+/// highest-priority active claim decides the LED; with no claims the LED
+/// returns to the configured idle state. A manual ``Override`` beats every
+/// claim. Claims are files under ``Paths/claimsDirectory``, so separate
+/// processes cooperate; every mutation runs under an exclusive `flock`.
 ///
 /// Every mutating method takes `apply`. With `apply: true` (the default) it
 /// writes the LED itself, once. Pass `apply: false` to only record the change
@@ -107,14 +146,25 @@ public final class StatusLight {
     public let paths: Paths
     /// What changes the LED.
     public let backend: LEDBackend
-    /// LED states and lifetimes per status.
+    /// Presets, named patterns and the idle state.
     public let configuration: Configuration
+    /// Shows a spec, patterns included. Without one, a single state is
+    /// written: for a pattern, its first step.
+    let presenter: ((LEDSpec) throws -> Void)?
 
     /// Creates a status light from explicit parts.
     public init(paths: Paths, backend: LEDBackend, configuration: Configuration = Configuration()) {
         self.paths = paths
         self.backend = backend
         self.configuration = configuration
+        self.presenter = nil
+    }
+
+    init(paths: Paths, backend: LEDBackend, configuration: Configuration, presenter: ((LEDSpec) throws -> Void)?) {
+        self.paths = paths
+        self.backend = backend
+        self.configuration = configuration
+        self.presenter = presenter
     }
 
     /// Creates a status light configured from `environment`: `CHARGELIGHT_HOME`,
@@ -129,21 +179,38 @@ public final class StatusLight {
 
     // MARK: - Claims
 
+    /// Sets (or renews) the claim `id` with one of the built-in presets.
+    public func claim(
+        id: String, status: AgentStatus, ttl: TimeInterval? = nil, label: String? = nil,
+        stamp: UInt64 = Claim.currentStamp(), now: Date = Date(), apply: Bool = true
+    ) throws -> SyncResult {
+        try claim(
+            id: id, show: status.rawValue, ttl: ttl, label: label, stamp: stamp, now: now, apply: apply)
+    }
+
     /// Sets (or renews) the claim `id`.
     ///
     /// - Parameters:
-    ///   - ttl: Lifetime in seconds; defaults to the configured TTL for `status`.
+    ///   - show: A preset, a state, a pattern name or a pattern such as
+    ///     `green:300,off:300`; see ``Configuration/resolve(_:)``.
+    ///   - priority: Higher wins. Defaults to the preset's priority, or
+    ///     ``Configuration/defaultPriority`` when `show` is not a preset.
+    ///   - ttl: Lifetime in seconds. Defaults to the preset's, or
+    ///     ``Configuration/defaultTTL``.
     ///   - label: Short description; when `nil` an existing label is kept.
     ///   - stamp: Ordering token. If the stored claim for `id` has a higher
     ///     stamp, or `id` was released with a higher stamp in the last minute,
     ///     this request is stale (hooks can land out of order) and is ignored.
     ///   - apply: Write the LED now; see ``StatusLight``.
     public func claim(
-        id: String, status: AgentStatus, ttl: TimeInterval? = nil, label: String? = nil,
+        id: String, show: String, priority: Int? = nil, ttl: TimeInterval? = nil, label: String? = nil,
         stamp: UInt64 = Claim.currentStamp(), now: Date = Date(), apply: Bool = true
     ) throws -> SyncResult {
         guard !id.isEmpty else { throw ChargeLightError.invalidArgument("claim id must not be empty") }
-        let lifetime = ttl ?? configuration.ttl(for: status)
+        _ = try configuration.resolve(show)
+        let preset = configuration.preset(show)
+        let rank = priority ?? preset?.priority ?? Configuration.defaultPriority
+        let lifetime = ttl ?? preset?.ttl ?? Configuration.defaultTTL
         guard lifetime > 0, lifetime.isFinite else {
             throw ChargeLightError.invalidArgument("ttl must be a positive number of seconds")
         }
@@ -160,7 +227,7 @@ public final class StatusLight {
                 accepted = false
             } else {
                 let claim = Claim(
-                    id: id, status: status, label: label ?? existing?.label,
+                    id: id, show: show, priority: rank, label: label ?? existing?.label,
                     updatedAt: now, expiresAt: now.addingTimeInterval(lifetime), stamp: stamp)
                 try FileIO.writeAtomically(try StoredJSON.encoder().encode(claim), to: file)
                 stored = claim
@@ -215,12 +282,22 @@ public final class StatusLight {
     public func setOverride(
         _ state: LEDState?, ttl: TimeInterval? = nil, now: Date = Date(), apply: Bool = true
     ) throws -> SyncResult {
+        try setOverride(show: state?.rawValue, ttl: ttl, now: now, apply: apply)
+    }
+
+    /// Shows a state or a pattern regardless of the claims, until it is
+    /// cleared or `ttl` seconds have passed. `nil` or `"system"` clears the
+    /// override, handing the LED back to the claims.
+    public func setOverride(
+        show: String?, ttl: TimeInterval? = nil, now: Date = Date(), apply: Bool = true
+    ) throws -> SyncResult {
         if let ttl, !(ttl > 0 && ttl.isFinite) {
             throw ChargeLightError.invalidArgument("duration must be a positive number of seconds")
         }
+        if let show { _ = try configuration.resolveLED(show) }
         return try withLock {
-            if let state, state != .system {
-                let override = Override(led: state, setAt: now, expiresAt: ttl.map { now.addingTimeInterval($0) })
+            if let show, show != LEDState.system.rawValue {
+                let override = Override(show: show, setAt: now, expiresAt: ttl.map { now.addingTimeInterval($0) })
                 try FileIO.writeAtomically(try StoredJSON.encoder().encode(override), to: paths.overrideFile)
             } else {
                 try FileIO.remove(paths.overrideFile)
@@ -251,32 +328,35 @@ public final class StatusLight {
             desired: desiredLED(for: active, override: override), applied: readApplied())
     }
 
-    /// The LED state the given claims call for, unless `override` is in force.
-    public func desiredLED(for claims: [Claim], override: Override? = nil) -> LEDState {
-        if let override { return override.led }
-        guard let winner = claims.min(by: Claim.byPrecedence) else { return configuration.leds.idle }
-        return configuration.led(for: winner.status)
+    /// What the given claims call for, unless `override` is in force. A claim
+    /// naming something the configuration no longer knows is passed over.
+    public func desiredLED(for claims: [Claim], override: Override? = nil) -> LEDSpec {
+        if let override, let spec = try? configuration.resolveLED(override.show) { return spec }
+        for claim in claims.sorted(by: Claim.byPrecedence) {
+            if let spec = try? configuration.resolve(claim.show) { return spec }
+        }
+        return .state(configuration.idle)
     }
 
     // MARK: - Watcher support
 
     /// Syncs, then re-writes the desired LED if the hardware no longer shows it.
     ///
-    /// For backends without a hold: if the desired state is not
+    /// For backends without a hold: if the desired state is fixed and not
     /// ``LEDState/system``, the last write is older than `settle` seconds (a
     /// readback right after a write can still show the old value), and the
     /// backend reads back something else, the state is written again.
     ///
     /// - Returns: The sync result and whether the LED was re-written.
-    func syncAndReassert(now: Date, settle: TimeInterval) throws -> (SyncResult, reasserted: Bool) {
+    func syncAndReassert(now: Date, settle: TimeInterval, force: Bool = false) throws -> (SyncResult, reasserted: Bool) {
         try withLock {
-            var result = try syncLocked(now: now, force: false, apply: true)
-            guard !result.isIdle, result.led != .system,
-                  let applied = readApplied(), applied.led == result.led,
+            var result = try syncLocked(now: now, force: force, apply: true)
+            guard !result.isIdle, let wanted = result.led.state, wanted != .system,
+                  let applied = readApplied(), applied.show == result.led.description,
                   now.timeIntervalSince(applied.appliedAt) > settle
             else { return (result, false) }
             let reading = try backend.read()
-            guard reading.state != result.led else { return (result, false) }
+            guard reading.state != wanted else { return (result, false) }
             try apply(result.led, now: now)
             result.wrote = true
             return (result, true)
@@ -285,18 +365,22 @@ public final class StatusLight {
 
     /// Runs `body` and returns `true` if nothing asks for the LED. The check
     /// and `body` run under the claims lock, so no claim can arrive in between.
-    func ifIdle(now: Date = Date(), _ body: () -> Void) throws -> Bool {
+    ///
+    /// A claim or override that has expired but not yet been cleared up also
+    /// counts as busy: it expired after the last sync, which has therefore
+    /// not yet put the idle state back.
+    func ifIdle(_ body: () -> Void) throws -> Bool {
         try withLock {
-            let active = loadClaims(deleteCorrupt: false).contains { !$0.isExpired(at: now) }
-            guard !active, readOverride(now: now) == nil else { return false }
+            guard loadClaims(deleteCorrupt: false).isEmpty, !FileIO.exists(paths.overrideFile.path) else { return false }
             body()
             return true
         }
     }
 
-    /// The same claims and configuration, writing through `backend`.
-    func using(backend: LEDBackend) -> StatusLight {
-        StatusLight(paths: paths, backend: backend, configuration: configuration)
+    /// The same claims and configuration, writing through `backend` and
+    /// showing specs with `presenter`.
+    func using(backend: LEDBackend, presenter: ((LEDSpec) throws -> Void)? = nil) -> StatusLight {
+        StatusLight(paths: paths, backend: backend, configuration: configuration, presenter: presenter)
     }
 
     // MARK: - Internals
@@ -324,7 +408,7 @@ public final class StatusLight {
         active.sort(by: Claim.byPrecedence)
         let desired = desiredLED(for: active, override: override)
         var wrote = false
-        if shouldApply, force || readApplied()?.led != desired {
+        if shouldApply, force || readApplied()?.show != desired.description {
             try apply(desired, now: now)
             wrote = true
         }
@@ -333,9 +417,13 @@ public final class StatusLight {
             claim: nil, accepted: true, released: 0)
     }
 
-    private func apply(_ state: LEDState, now: Date) throws {
-        try backend.write(state)
-        let record = AppliedState(led: state, appliedAt: now)
+    private func apply(_ spec: LEDSpec, now: Date) throws {
+        if let presenter {
+            try presenter(spec)
+        } else {
+            try backend.write(spec.firstState)
+        }
+        let record = AppliedState(show: spec.description, appliedAt: now)
         try FileIO.writeAtomically(try StoredJSON.encoder().encode(record), to: paths.appliedFile)
     }
 
@@ -348,7 +436,7 @@ public final class StatusLight {
     private func readOverride(now: Date) -> Override? {
         guard let data = try? FileIO.readIfPresent(paths.overrideFile),
               let override = try? StoredJSON.decoder().decode(Override.self, from: data),
-              !override.isExpired(at: now), override.led != .system
+              !override.isExpired(at: now), override.show != LEDState.system.rawValue
         else { return nil }
         return override
     }

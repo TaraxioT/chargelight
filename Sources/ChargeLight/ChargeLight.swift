@@ -11,8 +11,12 @@ import Foundation
 ///
 /// For agent status with claims and expiry, use ``StatusLight``.
 public enum ChargeLight {
-    /// The chargelight version (shared by the library, the CLI and the helper).
+    /// The chargelight version (shared by the library and the CLI).
     public static let version: String = CL_VERSION
+
+    /// The version `chargelight-helper` reports. It changes only when the
+    /// helper itself does, so an upgrade does not ask for `setup` again.
+    public static let helperVersion: String = CL_HELPER_VERSION
 
     /// Reads the LED.
     public static func read() throws -> LEDReading {

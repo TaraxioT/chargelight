@@ -1,5 +1,5 @@
 import ChargeLight
-import ChargeLightCommands
+@testable import ChargeLightCommands
 import Foundation
 import XCTest
 
@@ -94,9 +94,38 @@ func runCLI(
 ) -> CLIRun {
     var out = ""
     var err = ""
+    var lines = stdin.isEmpty ? [] : stdin.components(separatedBy: "\n")
+    if lines.last == "" { lines.removeLast() }
     let code = runChargeLight(
         arguments: arguments, environment: environment, stdin: { Data(stdin.utf8) },
+        readLine: { lines.isEmpty ? nil : lines.removeFirst() },
         stdout: { out += $0 }, stderr: { err += $0 },
         stamp: stamp ?? Claim.currentStamp(), executablePath: "/nonexistent/chargelight")
     return CLIRun(code: code, stdout: out, stderr: err)
+}
+
+/// A CLI run in-process with injected input lines, keeping its output.
+final class CLIHarness {
+    let cli: CLI
+    private let lock = NSLock()
+    private var out = ""
+    private var err = ""
+
+    var stdout: String { lock.lock(); defer { lock.unlock() }; return out }
+    var stderr: String { lock.lock(); defer { lock.unlock() }; return err }
+
+    init(environment: [String: String], readLine: @escaping () -> String? = { nil }) {
+        var appendOut: (String) -> Void = { _ in }
+        var appendErr: (String) -> Void = { _ in }
+        cli = CLI(
+            environment: environment, stdin: { Data() }, readLine: readLine,
+            stdout: { appendOut($0) }, stderr: { appendErr($0) },
+            stamp: Claim.currentStamp(), executablePath: "/nonexistent/chargelight")
+        appendOut = { [unowned self] text in lock.lock(); out += text; lock.unlock() }
+        appendErr = { [unowned self] text in lock.lock(); err += text; lock.unlock() }
+    }
+
+    func run(_ arguments: [String]) -> Int32 {
+        cli.run(arguments)
+    }
 }

@@ -40,7 +40,7 @@ final class StatusLightTests: XCTestCase {
         XCTAssertEqual(snapshot.desired, .blinkFast)
         XCTAssertEqual(snapshot.winner?.id, "c")
         XCTAssertEqual(snapshot.claims.map(\.id), ["c", "b", "d", "a"])
-        XCTAssertEqual(snapshot.applied?.led, .blinkFast)
+        XCTAssertEqual(snapshot.applied?.show, "blink-fast")
 
         XCTAssertEqual(try light.release(id: "c", now: t0).led, .amber)
         XCTAssertEqual(try light.release(id: "b", now: t0).led, .green)
@@ -117,7 +117,7 @@ final class StatusLightTests: XCTestCase {
         XCTAssertEqual(backend.writes, [.system, .amber], "a lower-priority claim does not change the LED")
         _ = try light.claim(id: "s", status: .attention, stamp: 10, now: t0)
         XCTAssertEqual(backend.writes, [.system, .amber, .blinkFast])
-        XCTAssertEqual(light.readApplied(), AppliedState(led: .blinkFast, appliedAt: t0))
+        XCTAssertEqual(light.readApplied(), AppliedState(show: "blink-fast", appliedAt: t0))
         XCTAssertTrue(try light.sync(now: t0, force: true).wrote)
         XCTAssertEqual(backend.writes.count, 4)
     }
@@ -165,7 +165,7 @@ final class StatusLightTests: XCTestCase {
         _ = try light.claim(id: "s", status: .working, stamp: 1, now: t0)
         let off = try light.setOverride(.off, now: t0)
         XCTAssertEqual(off.led, .off)
-        XCTAssertEqual(off.override?.led, .off)
+        XCTAssertEqual(off.override?.show, "off")
         XCTAssertFalse(off.isIdle)
         XCTAssertEqual(try light.claim(id: "s", status: .attention, stamp: 2, now: t0).led, .off)
         XCTAssertEqual(light.snapshot(now: t0).desired, .off)
@@ -269,7 +269,7 @@ final class StatusLightTests: XCTestCase {
         try FileManager.default.createDirectory(at: home.url, withIntermediateDirectories: true)
         try Data("garbage".utf8).write(to: home.paths.appliedFile)
         XCTAssertTrue(try light.sync(now: t0).wrote)
-        XCTAssertEqual(light.readApplied()?.led, .system)
+        XCTAssertEqual(light.readApplied()?.show, "system")
     }
 
     func testConcurrentClaimsFromManyThreads() throws {
@@ -292,8 +292,8 @@ final class StatusLightTests: XCTestCase {
 
     func testCustomConfigurationLEDs() throws {
         var configuration = Configuration()
-        configuration.leds.working = .blinkSlow
-        configuration.leds.idle = .off
+        configuration.presets["working"]?.led = "blink-slow"
+        configuration.idle = .off
         let light = StatusLight(paths: home.paths, backend: backend, configuration: configuration)
         XCTAssertEqual(try light.sync(now: t0).led, .off)
         XCTAssertEqual(try light.claim(id: "s", status: .working, stamp: 1, now: t0).led, .blinkSlow)

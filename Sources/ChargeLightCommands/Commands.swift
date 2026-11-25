@@ -12,57 +12,130 @@ extension CLI {
             text: name ?? "unknown (0x\(String(format: "%02x", reading.raw)))")
     }
 
-    func setCommand(_ name: String, options: [String: String]) throws -> CommandOutput {
-        let state = try parseLEDState(name)
+    func setCommand(_ show: String, options: [String: String]) throws -> CommandOutput {
+        let ending = show == LEDState.system.rawValue
         var ttl: TimeInterval?
         if let text = options["--for"] {
-            guard let seconds = parseDuration(text) else {
-                throw ChargeLightError.invalidArgument("invalid --for \"\(text)\" (examples: 90, 90s, 10m, 2h)")
-            }
-            guard state != .system else {
+            ttl = try duration(text, option: "--for")
+            guard !ending else {
                 throw ChargeLightError.invalidArgument("--for does not apply to system, which ends the override")
             }
-            ttl = seconds
         }
         let light = try makeWritableLight()
-        let result = try light.setOverride(state, ttl: ttl, apply: false)
-        try applyChange(light, force: state == .system)
-        if state == .system {
+        try validateLED(show, light.configuration)
+        let result = try light.setOverride(show: show, ttl: ttl, apply: false)
+        try applyChange(light, force: ending)
+        let led = result.led.description
+        if ending {
             return CommandOutput(
-                fields: ["led": .string(result.led.rawValue), "override": .null],
-                text: result.claims.isEmpty
-                    ? result.led.rawValue : "\(result.led.rawValue) (\(result.claims.count) agent claim(s) decide the LED again)")
+                fields: ["led": .string(led), "override": .null],
+                text: result.claims.isEmpty ? led : "\(led) (\(result.claims.count) claim(s) decide the LED again)")
         }
         if !result.claims.isEmpty {
-            warn("this overrides \(result.claims.count) agent claim(s) until: chargelight set system")
+            warn("this overrides \(result.claims.count) claim(s) until: chargelight set system")
         }
         return CommandOutput(
-            fields: ["led": .string(result.led.rawValue), "override": .override(result.override)],
-            text: ttl.map { "\(state.rawValue) for \(formatDuration($0))" } ?? "\(state.rawValue) (until: chargelight set system)")
+            fields: ["led": .string(led), "override": .override(result.override)],
+            text: ttl.map { "\(show) for \(formatDuration($0))" } ?? "\(show) (until: chargelight set system)")
+    }
+
+    func flashCommand(_ what: String, options: [String: String], wait: Bool) throws -> CommandOutput {
+        let times = try integer(options["--times"] ?? "3", option: "--times", in: 1...100)
+        let light = try makeWritableLight()
+        let pattern: Pattern
+        switch LEDState(rawValue: what) {
+        case .green?, .amber?:
+            pattern = try Pattern(parsing: "\(what):150,off:150")
+        case .some:
+            throw ChargeLightError.invalidArgument(
+                "flash takes green, amber, a pattern name or a pattern such as green:100,off:100, not \(what)")
+        case nil:
+            guard case .pattern(let named) = try light.configuration.resolveLED(what) else {
+                throw ChargeLightError.invalidArgument("flash takes green, amber or a pattern")
+            }
+            pattern = named
+        }
+        let length = Double(times) * pattern.duration
+        let claim = try notice(kind: "flash", pattern: pattern, length: length, label: what, light: light, wait: wait)
+        return CommandOutput(
+            fields: [
+                "flash": .object([
+                    "id": .string(claim.id), "show": .string(claim.show), "times": .int(Int64(times)),
+                    "duration": .seconds(length),
+                ]),
+            ],
+            text: "flash \(pattern.name ?? pattern.literal) \(times) time(s) (\(formatSeconds(length)))")
+    }
+
+    func morseCommand(_ text: String, options: [String: String], wait: Bool) throws -> CommandOutput {
+        let colour: LEDState
+        switch options["--color"] ?? "amber" {
+        case "amber": colour = .amber
+        case "green": colour = .green
+        case let other: throw ChargeLightError.invalidArgument("invalid --color \"\(other)\" (expected amber or green)")
+        }
+        var unitText = options["--unit"] ?? "150"
+        if unitText.hasSuffix("ms") { unitText.removeLast(2) }
+        let unit = try integer(unitText, option: "--unit", in: 50...1000)
+        let light = try makeWritableLight()
+        let pattern = try Pattern.morse(text, lit: colour, unit: Double(unit) / 1000)
+        let claim = try notice(
+            kind: "morse", pattern: pattern, length: pattern.duration, label: "morse: \(text)", light: light, wait: wait)
+        return CommandOutput(
+            fields: [
+                "morse": .object([
+                    "id": .string(claim.id), "text": .string(text), "duration": .seconds(pattern.duration),
+                    "pattern": .string(claim.show),
+                ]),
+            ],
+            text: "morse \"\(text)\" (\(formatSeconds(pattern.duration)))")
+    }
+
+    /// Shows `pattern` for `length` seconds over every claim, then lets the LED
+    /// go back: a short-lived claim at ``Configuration/noticePriority`` that
+    /// the watcher ends on time.
+    private func notice(
+        kind: String, pattern: Pattern, length: TimeInterval, label: String?, light: StatusLight, wait: Bool
+    ) throws -> Claim {
+        let id = "\(kind):\(getpid())-\(String(UInt32.random(in: 0 ... .max), radix: 16))"
+        // End just before the next pass would start, so its first step never shows.
+        let result = try light.claim(
+            id: id, show: pattern.literal, priority: Configuration.noticePriority, ttl: max(0.01, length - 0.02),
+            label: label, stamp: Claim.currentStamp(), apply: false)
+        try applyChange(light)
+        guard let claim = result.claim else { throw ChargeLightError.io("the \(kind) claim was not stored") }
+        if let override = result.override {
+            warn("the override \(override.show) hides this \(kind); end it with: chargelight set system")
+        }
+        if wait {
+            // A little extra, so the watcher has put the LED back before we return.
+            Thread.sleep(forTimeInterval: max(0, claim.expiresAt.timeIntervalSinceNow + 0.03))
+        }
+        return claim
     }
 
     func demoCommand() throws -> CommandOutput {
         let light = try makeWritableLight()
         let before = light.snapshot().override
-        let sequence: [LEDState] = [.amber, .blinkSlow, .blinkFast, .green, .off]
-        for state in sequence {
-            _ = try light.setOverride(state, apply: false)
+        let sequence = ["amber", "green", "blink-slow", "blink-fast", "alternate", "heartbeat", "blink-green"]
+        for show in sequence {
+            _ = try light.setOverride(show: show, apply: false)
             try applyChange(light)
-            if !json && !quiet { writeOut("\(state.rawValue)\n") }
+            if !json && !quiet { writeOut("\(show)\n") }
             if demoStep > 0 { Thread.sleep(forTimeInterval: demoStep) }
         }
         // Put back whatever was being shown before the demo.
         let remaining = before?.expiresAt.map { $0.timeIntervalSinceNow }
         let restored: SyncResult
         if let before, remaining.map({ $0 > 0 }) ?? true {
-            restored = try light.setOverride(before.led, ttl: remaining, apply: false)
+            restored = try light.setOverride(show: before.show, ttl: remaining, apply: false)
         } else {
-            restored = try light.setOverride(nil, apply: false)
+            restored = try light.setOverride(show: nil, apply: false)
         }
         try applyChange(light, force: true)
         return CommandOutput(
-            fields: ["shown": .array(sequence.map { .string($0.rawValue) }), "led": .string(restored.led.rawValue)],
-            text: "restored: \(restored.led.rawValue)")
+            fields: ["shown": .array(sequence.map { .string($0) }), "led": .string(restored.led.description)],
+            text: "restored: \(restored.led.description)")
     }
 
     /// A status light that can actually change the LED. Changes are applied by
@@ -83,36 +156,37 @@ extension CLI {
 
     // MARK: - Claims
 
-    func claimCommand(id: String, status: String, options: [String: String]) throws -> CommandOutput {
-        guard let agentStatus = AgentStatus(rawValue: status) else {
-            throw ChargeLightError.invalidArgument(
-                "unknown status \"\(status)\" (expected one of: \(AgentStatus.allCases.map(\.rawValue).joined(separator: ", ")))")
-        }
-        var ttl: TimeInterval?
-        if let text = options["--ttl"] {
-            guard let seconds = parseDuration(text) else {
-                throw ChargeLightError.invalidArgument("invalid --ttl \"\(text)\" (examples: 90, 90s, 10m, 2h)")
-            }
-            ttl = seconds
-        }
+    func claimCommand(id: String, show: String, options: [String: String]) throws -> CommandOutput {
+        let ttl = try options["--ttl"].map { try duration($0, option: "--ttl") }
+        let priority = try options["--priority"].map { try integer($0, option: "--priority", in: -1_000_000...1_000_000) }
         let light = try makeWritableLight()
         let result = try light.claim(
-            id: id, status: agentStatus, ttl: ttl, label: options["--label"], stamp: stamp, apply: false)
+            id: id, show: show, priority: priority, ttl: ttl, label: options["--label"], stamp: stamp, apply: false)
         try applyChange(light)
+        let led = result.led.description
         guard let claim = result.claim else {
             // Only when this request is older than a release of the same id.
             return CommandOutput(
-                fields: ["claim": .null, "accepted": .bool(false), "led": .string(result.led.rawValue)],
-                text: "ignored: \(id) was released after this request started; LED \(result.led.rawValue)")
+                fields: ["claim": .null, "accepted": .bool(false), "led": .string(led)],
+                text: "ignored: \(id) was released after this request started; LED \(led)")
         }
-        let text = result.accepted
-            ? "\(result.led.rawValue) (\(claim.id) \(claim.status.rawValue), expires in \(formatDuration(claim.expiresAt.timeIntervalSinceNow)))"
-            : "ignored: a newer claim for \(claim.id) exists; LED \(result.led.rawValue)"
+        var text: String
+        if result.accepted {
+            text = "\(led) (\(claim.id) \(claim.show), priority \(claim.priority), "
+                + "expires in \(formatDuration(claim.expiresAt.timeIntervalSinceNow)))"
+            if result.override != nil {
+                text += "; an override decides the LED until: chargelight set system"
+            } else if let winner = winningClaim(result.claims, light.configuration), winner.id != claim.id {
+                text += "; \(winner.id) wins with priority \(winner.priority)"
+            }
+        } else {
+            text = "ignored: a newer claim for \(claim.id) exists; LED \(led)"
+        }
         return CommandOutput(
             fields: [
                 "claim": .claim(claim, configuration: light.configuration),
                 "accepted": .bool(result.accepted),
-                "led": .string(result.led.rawValue),
+                "led": .string(led),
             ],
             text: text)
     }
@@ -123,8 +197,8 @@ extension CLI {
         try applyChange(light)
         let released = result.released > 0
         return CommandOutput(
-            fields: ["released": .bool(released), "led": .string(result.led.rawValue)],
-            text: "\(released ? "released" : "no claim") \(id); LED \(result.led.rawValue)")
+            fields: ["released": .bool(released), "led": .string(result.led.description)],
+            text: "\(released ? "released" : "no claim") \(id); LED \(result.led.description)")
     }
 
     func resetCommand() throws -> CommandOutput {
@@ -132,12 +206,13 @@ extension CLI {
         let result = try light.reset(apply: false)
         try applyChange(light, force: true)
         return CommandOutput(
-            fields: ["released": .int(Int64(result.released)), "led": .string(result.led.rawValue)],
-            text: "released \(result.released) claim(s), cleared any override; LED \(result.led.rawValue)")
+            fields: ["released": .int(Int64(result.released)), "led": .string(result.led.description)],
+            text: "released \(result.released) claim(s), cleared any override; LED \(result.led.description)")
     }
 
     func statusCommand() throws -> CommandOutput {
         let light = try makeLight()
+        let configuration = light.configuration
         let snapshot = light.snapshot()
         var reading: LEDReading?
         var readError: ChargeLightError?
@@ -148,7 +223,7 @@ extension CLI {
         let backendName = light.backend is FileBackend ? "file" : "smc"
 
         var led: [String: JSON] = [
-            "desired": .string(snapshot.desired.rawValue),
+            "desired": .string(snapshot.desired.description),
             "actual": .string(reading?.state?.rawValue),
             "raw": reading.map { .int(Int64($0.raw)) } ?? .null,
         ]
@@ -157,7 +232,7 @@ extension CLI {
         }
         let fields: [String: JSON] = [
             "led": .object(led),
-            "claims": .array(snapshot.claims.map { .claim($0, configuration: light.configuration) }),
+            "claims": .array(snapshot.claims.map { .claim($0, configuration: configuration) }),
             "override": .override(snapshot.override),
             "watcher": .object(["running": .bool(watcherRunning)]),
             "helper": .object(["installed": .bool(helperInstalled), "path": .string(helperPath)]),
@@ -171,14 +246,18 @@ extension CLI {
         } else {
             actual = "unreadable (\(readError?.message ?? "unknown error"))"
         }
+        // The hardware shows a pattern one step at a time.
+        let desired = snapshot.desired.pattern == nil
+            ? snapshot.desired.description : "\(snapshot.desired.description) (pattern)"
         var lines = [
-            "led      \(actual), desired \(snapshot.desired.rawValue)" + (backendName == "file" ? " [file backend]" : ""),
+            "led      \(actual), desired \(abbreviate(desired, 60))" + (backendName == "file" ? " [file backend]" : ""),
             "watcher  \(watcherRunning ? "running" : "not running")",
             "helper   \(helperInstalled ? "installed" : "not installed (run: sudo chargelight setup)") \(helperPath)",
         ]
         if let override = snapshot.override {
-            let until = override.expiresAt.map { "for \(formatDuration($0.timeIntervalSinceNow))" } ?? "until: chargelight set system"
-            lines.append("override \(override.led.rawValue) (\(until))")
+            let until = override.expiresAt.map { "for \(formatDuration($0.timeIntervalSinceNow))" }
+                ?? "until: chargelight set system"
+            lines.append("override \(abbreviate(override.show, 60)) (\(until))")
         }
         if snapshot.claims.isEmpty {
             lines.append("claims   none")
@@ -186,13 +265,45 @@ extension CLI {
             lines.append("claims   \(snapshot.claims.count)")
             let rows = snapshot.claims.map { claim in
                 [
-                    claim.status.rawValue, light.configuration.led(for: claim.status).rawValue,
-                    formatDuration(claim.expiresAt.timeIntervalSinceNow), claim.label ?? "-", claim.id,
+                    abbreviate(claim.show), abbreviate((try? configuration.resolve(claim.show))?.description ?? "? (unknown)"),
+                    String(claim.priority), formatDuration(claim.expiresAt.timeIntervalSinceNow), claim.label ?? "-",
+                    claim.id,
                 ]
             }
-            lines += table([["STATUS", "LED", "EXPIRES", "LABEL", "ID"]] + rows).map { "  " + $0 }
+            lines += table([["SHOW", "LED", "PRI", "EXPIRES", "LABEL", "ID"]] + rows).map { "  " + $0 }
         }
         return CommandOutput(fields: fields, text: lines.joined(separator: "\n"))
+    }
+
+    func listCommand() throws -> CommandOutput {
+        let configuration = try makeLight().configuration
+        let presets = configuration.presets.sorted {
+            $0.value.priority != $1.value.priority ? $0.value.priority > $1.value.priority : $0.key < $1.key
+        }
+        let patterns = configuration.patterns.sorted { $0.key < $1.key }
+        let states = LEDState.allCases.map(\.rawValue)
+
+        var lines = ["States (idle: \(configuration.idle.rawValue))"]
+        lines += states.map { "  " + $0 }
+        lines += ["", "Presets"]
+        lines += table([["NAME", "LED", "PRI", "TTL"]] + presets.map {
+            [$0.key, $0.value.led, String($0.value.priority), formatDuration($0.value.ttl)]
+        }).map { "  " + $0 }
+        lines += ["", "Patterns"]
+        lines += table(patterns.map { [$0.key, $0.value.literal] }).map { "  " + $0 }
+        return CommandOutput(
+            fields: [
+                "states": .array(states.map { .string($0) }),
+                "idle": .string(configuration.idle.rawValue),
+                "presets": .object(Dictionary(uniqueKeysWithValues: presets.map {
+                    ($0.key, JSON.object([
+                        "led": .string($0.value.led), "priority": .int(Int64($0.value.priority)),
+                        "ttl": .seconds($0.value.ttl),
+                    ]))
+                })),
+                "patterns": .object(Dictionary(uniqueKeysWithValues: patterns.map { ($0.key, JSON.string($0.value.literal)) })),
+            ],
+            text: lines.joined(separator: "\n"))
     }
 
     // MARK: - Setup
@@ -209,8 +320,8 @@ extension CLI {
         guard let version = report.helperVersion else {
             throw ChargeLightError.io("installed \(report.helperDestination.path) but it does not run")
         }
-        if version != ChargeLight.version {
-            warn("installed helper reports version \(version), expected \(ChargeLight.version)")
+        if version != ChargeLight.helperVersion {
+            warn("installed helper reports version \(version), expected \(ChargeLight.helperVersion)")
         }
         return CommandOutput(
             fields: [
@@ -224,7 +335,7 @@ extension CLI {
             text: """
                 installed \(report.helperDestination.path) (version \(version), from \(report.helperSource.path))
                 installed \(report.sudoersFile.path) (passwordless: chargelight-helper only)
-                try: chargelight set amber
+                try: chargelight flash green
                 """)
     }
 
@@ -240,7 +351,8 @@ extension CLI {
 
     // MARK: - Watcher
 
-    func watchCommand() throws -> CommandOutput {
+    /// The hidden `_watch` command: the background watcher itself.
+    func watcherCommand() throws -> CommandOutput {
         Watcher.run(light: try makeLight())
         return CommandOutput()
     }
@@ -253,7 +365,7 @@ extension CLI {
         var event = "?"
         do {
             let invocation = try Invocation.parse(arguments)
-            if let extra = invocation.options.keys.first(where: { $0 != "--as" }) {
+            if let extra = (invocation.options.keys.sorted() + invocation.flags.sorted()).first(where: { $0 != "--as" }) {
                 throw ChargeLightError.invalidArgument("hook does not take \(extra)")
             }
             var forced: ClaudeCodeHook.Action?
@@ -302,11 +414,51 @@ extension CLI {
 
     // MARK: - Helpers
 
-    func parseLEDState(_ name: String) throws -> LEDState {
-        guard let state = LEDState(rawValue: name) else {
-            throw ChargeLightError.invalidArgument("unknown LED state \"\(name)\" (expected one of: \(LEDState.namesList))")
+    /// Checks that `show` is a state or pattern; a preset gets a hint, since
+    /// only claims take presets.
+    func validateLED(_ show: String, _ configuration: Configuration) throws {
+        do {
+            _ = try configuration.resolveLED(show)
+        } catch {
+            if configuration.preset(show) != nil {
+                throw ChargeLightError.invalidArgument(
+                    "\(show) is a preset; presets are for claims: chargelight claim <id> \(show)")
+            }
+            throw error
         }
-        return state
+    }
+
+    /// The claim that decides the LED among `claims` (highest precedence
+    /// first): the first whose `show` still resolves.
+    func winningClaim(_ claims: [Claim], _ configuration: Configuration) -> Claim? {
+        claims.first { (try? configuration.resolve($0.show)) != nil }
+    }
+
+    /// Parses a duration option such as `--for 10m`.
+    func duration(_ text: String, option: String) throws -> TimeInterval {
+        guard let seconds = parseDuration(text) else {
+            throw ChargeLightError.invalidArgument("invalid \(option) \"\(text)\" (examples: 90, 90s, 10m, 2h)")
+        }
+        return seconds
+    }
+
+    /// Parses a whole-number option within `range`.
+    func integer(_ text: String, option: String, in range: ClosedRange<Int>) throws -> Int {
+        guard let value = Int(text.trimmingCharacters(in: .whitespaces)), range.contains(value) else {
+            throw ChargeLightError.invalidArgument(
+                "invalid \(option) \"\(text)\" (expected a whole number from \(range.lowerBound) to \(range.upperBound))")
+        }
+        return value
+    }
+
+    /// Shortens a long pattern for a table: the start, then `...`.
+    func abbreviate(_ text: String, _ length: Int = 32) -> String {
+        text.count <= length ? text : String(text.prefix(length - 3)) + "..."
+    }
+
+    /// `0.9 s`, `12.3 s`.
+    func formatSeconds(_ seconds: TimeInterval) -> String {
+        String(format: "%.1f s", seconds)
     }
 
     /// Left-aligns columns separated by two spaces.

@@ -67,7 +67,7 @@ final class CLITests: XCTestCase {
         object = json(["set", "amber"])
         XCTAssertEqual(object["ok"] as? Bool, true)
         XCTAssertEqual(object["led"] as? String, "amber")
-        XCTAssertEqual((object["override"] as? [String: Any])?["led"] as? String, "amber")
+        XCTAssertEqual((object["override"] as? [String: Any])?["show"] as? String, "amber")
         XCTAssertTrue((object["override"] as? [String: Any])?["expiresAt"] is NSNull)
         XCTAssertEqual(home.ledFile, "amber")
         object = json(["get"])
@@ -90,7 +90,7 @@ final class CLITests: XCTestCase {
         let object = json(["set", "blink-fast", "--for", "10m"])
         XCTAssertEqual(object["led"] as? String, "blink-fast")
         XCTAssertNotNil((object["override"] as? [String: Any])?["expiresAt"] as? String)
-        XCTAssertEqual((json(["status"])["override"] as? [String: Any])?["led"] as? String, "blink-fast")
+        XCTAssertEqual((json(["status"])["override"] as? [String: Any])?["show"] as? String, "blink-fast")
         XCTAssertEqual(runCLI(["set", "amber", "--for", "5m"], environment: env).stdout, "amber for 5m\n")
         XCTAssertEqual(runCLI(["set", "amber", "--for", "soon"], environment: env).code, 2)
         XCTAssertEqual(runCLI(["set", "system", "--for", "5m"], environment: env).code, 2)
@@ -125,7 +125,8 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(object["accepted"] as? Bool, true)
         let claim = object["claim"] as? [String: Any]
         XCTAssertEqual(claim?["id"] as? String, "claude:1")
-        XCTAssertEqual(claim?["status"] as? String, "working")
+        XCTAssertEqual(claim?["show"] as? String, "working")
+        XCTAssertEqual(claim?["priority"] as? Int, 20)
         XCTAssertEqual(claim?["label"] as? String, "proj")
         XCTAssertEqual(claim?["led"] as? String, "amber")
         XCTAssertNotNil(claim?["stamp"] as? NSNumber)
@@ -155,7 +156,7 @@ final class CLITests: XCTestCase {
     func testClaimHumanOutput() {
         let run = runCLI(["claim", "x", "ready", "--ttl", "90"], environment: env)
         XCTAssertEqual(run.code, 0)
-        XCTAssertTrue(run.stdout.hasPrefix("green (x ready, expires in "), run.stdout)
+        XCTAssertTrue(run.stdout.hasPrefix("green (x ready, priority 10, expires in "), run.stdout)
     }
 
     func testStatus() {
@@ -248,7 +249,9 @@ final class CLITests: XCTestCase {
         cli.demoStep = 0
         XCTAssertEqual(cli.run(["demo", "--json"]), 0)
         let object = try? JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any]
-        XCTAssertEqual(object?["shown"] as? [String], ["amber", "blink-slow", "blink-fast", "green", "off"])
+        XCTAssertEqual(
+            object?["shown"] as? [String],
+            ["amber", "green", "blink-slow", "blink-fast", "alternate", "heartbeat", "blink-green"])
         XCTAssertEqual(object?["led"] as? String, "amber")
         XCTAssertEqual(home.ledFile, "amber", "restored to what the claims call for")
     }

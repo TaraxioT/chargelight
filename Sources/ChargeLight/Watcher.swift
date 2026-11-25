@@ -35,8 +35,12 @@ public enum Watcher {
     }
 
     /// Runs one watcher iteration: sync, then drift recovery.
-    public static func tick(light: StatusLight, now: Date = Date()) throws -> Tick {
-        let (result, reasserted) = try light.syncAndReassert(now: now, settle: settleTime)
+    ///
+    /// - Parameter force: Write the desired LED even if it is recorded as
+    ///   applied. A new watcher does this once: a pattern is only played by
+    ///   the watcher that applies it, and a new hold starts out empty.
+    public static func tick(light: StatusLight, now: Date = Date(), force: Bool = false) throws -> Tick {
+        let (result, reasserted) = try light.syncAndReassert(now: now, settle: settleTime, force: force)
         return Tick(result: result, reasserted: reasserted)
     }
 
@@ -51,19 +55,31 @@ public enum Watcher {
         defer { lock.unlock() }
 
         // With a hold, every write goes to one long-running helper that also
-        // keeps the state; without one, ticks re-write on drift.
+        // keeps the state; without one, ticks re-write on drift. Either way a
+        // player steps through patterns.
         var hold: LEDHolding?
-        var active = light
+        var backend = light.backend
         if let holding = light.backend as? HoldingLEDBackend, let started = try? holding.makeHold() {
             hold = started
-            active = light.using(backend: HeldBackend(base: light.backend, hold: started))
+            backend = HeldBackend(base: light.backend, hold: started)
         }
+        let output = backend
+        let player = PatternPlayer { try output.write($0) }
+        let active = light.using(backend: backend, presenter: { try player.show($0) })
         let changes = DirectoryWatch(light.paths.claimsDirectory)
 
         var idleExit = false
+        var first = true
         while true {
+            var wait = interval
             do {
-                _ = try tick(light: active)
+                // Wake exactly when the next claim expires, so a short-lived
+                // effect ends on time rather than at the next tick.
+                let result = try tick(light: active, force: first).result
+                first = false
+                if let expiry = result.nextExpiry {
+                    wait = min(interval, max(0.005, expiry.timeIntervalSinceNow + 0.005))
+                }
             } catch ChargeLightError.setupRequired {
                 break  // nothing can be written until `sudo chargelight setup`
             } catch {
@@ -76,8 +92,9 @@ public enum Watcher {
                 idleExit = true
                 break
             }
-            changes.wait(timeout: interval)
+            changes.wait(timeout: wait)
         }
+        player.stop()
         // Idle: the idle state is already applied, leave it. Otherwise hand
         // the LED back to macOS rather than leave a state nobody is keeping.
         hold?.stop(restoreSystem: !idleExit)

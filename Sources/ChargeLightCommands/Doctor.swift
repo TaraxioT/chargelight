@@ -74,12 +74,7 @@ extension CLI {
 
         if exists {
             let output = try? runProcess(helper, ["--version"])
-            let version = output.flatMap { $0.status == 0 ? $0.stdout : nil }
-            checks.append(DoctorCheck(
-                name: "helper-version", ok: version == ChargeLight.version,
-                detail: version == ChargeLight.version
-                    ? version!
-                    : "helper reports \(version ?? "nothing"), CLI is \(ChargeLight.version); fix: sudo chargelight setup"))
+            checks.append(CLI.helperVersionCheck(reported: output.flatMap { $0.status == 0 ? $0.stdout : nil }))
         } else {
             checks.append(DoctorCheck(name: "helper-version", ok: false, detail: "skipped: helper not installed; fix: sudo chargelight setup"))
         }
@@ -97,6 +92,18 @@ extension CLI {
                 name: "passwordless-sudo", ok: false, detail: "skipped: helper not installed safely; fix: sudo chargelight setup"))
         }
         return checks
+    }
+
+    /// Compares what the installed helper reports with the helper version
+    /// this build expects (``ChargeLight/helperVersion``, not the CLI version:
+    /// the helper changes rarely, and only a change to it needs `setup` again).
+    static func helperVersionCheck(reported version: String?) -> DoctorCheck {
+        let expected = ChargeLight.helperVersion
+        return DoctorCheck(
+            name: "helper-version", ok: version == expected,
+            detail: version == expected
+                ? expected
+                : "helper reports \(version ?? "nothing"), this chargelight needs \(expected); fix: sudo chargelight setup")
     }
 
     private func sysctlInt(_ name: String) -> Int32? {

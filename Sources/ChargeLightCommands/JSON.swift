@@ -7,6 +7,7 @@ enum JSON: Encodable, Equatable {
     case bool(Bool)
     case int(Int64)
     case uint(UInt64)
+    case double(Double)
     case string(String)
     case array([JSON])
     case object([String: JSON])
@@ -18,6 +19,7 @@ enum JSON: Encodable, Equatable {
         case .bool(let value): try container.encode(value)
         case .int(let value): try container.encode(value)
         case .uint(let value): try container.encode(value)
+        case .double(let value): try container.encode(value)
         case .string(let value): try container.encode(value)
         case .array(let value): try container.encode(value)
         case .object(let value): try container.encode(value)
@@ -42,21 +44,35 @@ enum JSON: Encodable, Equatable {
         return .string(formatter.string(from: date))
     }
 
+    /// Seconds, rounded to the millisecond so `3 * 0.3` prints as `0.9`.
+    static func seconds(_ value: TimeInterval) -> JSON {
+        .double((value * 1000).rounded() / 1000)
+    }
+
+    static func error(_ error: ChargeLightError) -> JSON {
+        .object([
+            "ok": .bool(false),
+            "error": .object(["code": .string(error.code), "message": .string(error.message)]),
+        ])
+    }
+
     static func override(_ override: Override?) -> JSON {
         guard let override else { return .null }
         return .object([
-            "led": .string(override.led.rawValue),
+            "show": .string(override.show),
             "setAt": .date(override.setAt),
             "expiresAt": override.expiresAt.map(JSON.date) ?? .null,
         ])
     }
 
+    /// A claim; `led` is what its `show` resolves to now, or null if it no longer does.
     static func claim(_ claim: Claim, configuration: Configuration) -> JSON {
         .object([
             "id": .string(claim.id),
-            "status": .string(claim.status.rawValue),
+            "show": .string(claim.show),
+            "led": .string((try? configuration.resolve(claim.show))?.description),
+            "priority": .int(Int64(claim.priority)),
             "label": .string(claim.label),
-            "led": .string(configuration.led(for: claim.status).rawValue),
             "updatedAt": .date(claim.updatedAt),
             "expiresAt": .date(claim.expiresAt),
             "stamp": .uint(claim.stamp),

@@ -27,8 +27,13 @@
 extern "C" {
 #endif
 
-/* Single source of truth for the version of the CLI, the library and the helper. */
-#define CL_VERSION "0.1.0"
+/* The version of the CLI and the library. */
+#define CL_VERSION "0.2.0"
+
+/* The version of chargelight-helper, the root binary installed by
+ * `sudo chargelight setup`. It changes only when the helper itself changes, so
+ * upgrading chargelight does not ask for setup again unless it has to. */
+#define CL_HELPER_VERSION "0.1.0"
 
 /* SMC key that drives the MagSafe LED (type ui8, one byte). */
 #define CL_LED_KEY "ACLC"
