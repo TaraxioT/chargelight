@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" role="img" aria-label="chargelight: the MagSafe charger LED as a status light. Amber means working, fast blink means the agent needs you, green means done.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101216"/>
+      <stop offset="1" stop-color="#1b1f26"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f4f6"/>
+      <stop offset="0.5" stop-color="#cfd0d5"/>
+      <stop offset="1" stop-color="#a9abb2"/>
+    </linearGradient>
+    <linearGradient id="cable" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9e9ed"/>
+      <stop offset="1" stop-color="#b9bac0"/>
+    </linearGradient>
+    <filter id="glow" x="-300%" y="-300%" width="700%" height="700%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <g id="plug">
+      <rect x="-150" y="-6" width="160" height="12" rx="6" fill="url(#cable)"/>
+      <rect x="-22" y="-10" width="30" height="20" rx="5" fill="#d9dade"/>
+      <rect x="0" y="-21" width="118" height="42" rx="11" fill="url(#metal)" stroke="#8f9198" stroke-width="1"/>
+      <rect x="104" y="-13" width="8" height="26" rx="3" fill="#7d7f86" opacity="0.55"/>
+    </g>
+  </defs>
+
+  <rect width="900" height="300" rx="22" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="899" height="299" rx="21.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="56" y="132" font-size="58" font-weight="700" letter-spacing="-1.5" fill="#f5f5f7">chargelight</text>
+    <text x="58" y="172" font-size="19" fill="#a1a1a8">Your MagSafe charger LED,</text>
+    <text x="58" y="198" font-size="19" fill="#a1a1a8">as a status light for AI coding agents.</text>
+
+    <!-- working: solid amber -->
+    <g transform="translate(560 78)">
+      <use href="#plug"/>
+      <circle cx="22" cy="0" r="12" fill="#ff9f0a" opacity="0.75" filter="url(#glow)"/>
+      <circle cx="22" cy="0" r="5.5" fill="#ffb340"/>
+      <text x="140" y="-2" font-size="19" font-weight="600" fill="#f5f5f7">Working</text>
+      <text x="140" y="19" font-size="14" fill="#8e8e96">amber</text>
+    </g>
+
+    <!-- needs you: fast blink -->
+    <g transform="translate(560 150)">
+      <use href="#plug"/>
+      <g>
+        <animate attributeName="opacity" values="1;1;0.08;0.08" keyTimes="0;0.5;0.5;1" dur="0.5s" repeatCount="indefinite"/>
+        <circle cx="22" cy="0" r="12" fill="#ff9f0a" opacity="0.75" filter="url(#glow)"/>
+        <circle cx="22" cy="0" r="5.5" fill="#ffb340"/>
+      </g>
+      <text x="140" y="-2" font-size="19" font-weight="600" fill="#f5f5f7">Needs you</text>
+      <text x="140" y="19" font-size="14" fill="#8e8e96">fast blink</text>
+    </g>
+
+    <!-- done: green -->
+    <g transform="translate(560 222)">
+      <use href="#plug"/>
+      <circle cx="22" cy="0" r="12" fill="#30d158" opacity="0.75" filter="url(#glow)"/>
+      <circle cx="22" cy="0" r="5.5" fill="#5be37d"/>
+      <text x="140" y="-2" font-size="19" font-weight="600" fill="#f5f5f7">Done</text>
+      <text x="140" y="19" font-size="14" fill="#8e8e96">green</text>
+    </g>
+  </g>
+</svg>
