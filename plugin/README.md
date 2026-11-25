@@ -18,8 +18,7 @@ In Claude Code:
 The plugin drives the light through the `chargelight` command-line tool, installed separately:
 
 ```sh
-brew tap TaraxioT/chargelight https://github.com/TaraxioT/chargelight
-brew install TaraxioT/chargelight/chargelight
+brew install taraxiot/tap/chargelight
 sudo chargelight setup
 ```
 
